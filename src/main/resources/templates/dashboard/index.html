@@ -423,7 +423,8 @@
   }
 
   function updateSalesTrendChart(dataList) {
-    const ctx = document.getElementById('dashboardSalesTrendChart')?.getContext('2d');
+    const canvas = document.getElementById('dashboardSalesTrendChart');
+    const ctx = canvas?.getContext('2d');
     if (!ctx) return;
 
     const list = [...(dataList || [])];
@@ -435,40 +436,55 @@
       salesTrendChartInstance.destroy();
     }
 
+    const chartHeight = canvas.parentElement ? canvas.parentElement.clientHeight : 320;
+    const gradient = ctx.createLinearGradient(0, 0, 0, chartHeight || 320);
+    gradient.addColorStop(0, 'rgba(37, 36, 31, 0.16)');
+    gradient.addColorStop(0.5, 'rgba(37, 36, 31, 0.06)');
+    gradient.addColorStop(1, 'rgba(37, 36, 31, 0.005)');
+
     const maxRev = Math.max(...revenueData, 0);
     const maxOrders = Math.max(...ordersData, 0);
 
     salesTrendChartInstance = new Chart(ctx, {
+      type: 'line',
       data: {
         labels: labels.length > 0 ? labels : ['No Data'],
         datasets: [
           {
-            type: 'bar',
+            type: 'line',
             label: 'Net Revenue ($)',
             data: revenueData.length > 0 ? revenueData : [0],
-            backgroundColor: 'rgba(37, 36, 31, 0.85)',
-            hoverBackgroundColor: '#25241f',
-            borderRadius: 4,
-            maxBarThickness: 34,
+            borderColor: '#25241f',
+            backgroundColor: gradient,
+            borderWidth: 2.5,
+            tension: 0.38,
+            cubicInterpolationMode: 'monotone',
+            fill: true,
             yAxisID: 'y',
-            order: 2
+            pointRadius: 3.5,
+            pointHoverRadius: 6.5,
+            pointBackgroundColor: '#25241f',
+            pointBorderColor: '#25241f',
+            pointBorderWidth: 1,
+            order: 1
           },
           {
             type: 'line',
             label: 'Orders',
             data: ordersData.length > 0 ? ordersData : [0],
             borderColor: '#4f5c46',
-            backgroundColor: 'rgba(79, 92, 70, 0.15)',
-            borderWidth: 2.5,
-            tension: 0.3,
+            backgroundColor: 'transparent',
+            borderWidth: 1.8,
+            borderDash: [4, 4],
+            tension: 0.35,
             fill: false,
             yAxisID: 'y1',
-            pointRadius: 4,
-            pointHoverRadius: 7,
+            pointRadius: 3,
+            pointHoverRadius: 6,
             pointBackgroundColor: '#4f5c46',
             pointBorderColor: '#ffffff',
-            pointBorderWidth: 1.5,
-            order: 1
+            pointBorderWidth: 1,
+            order: 2
           }
         ]
       },
@@ -479,7 +495,11 @@
         plugins: {
           legend: {
             position: 'top',
-            labels: { boxWidth: 12, font: { size: 11, family: 'Arial, sans-serif' } }
+            labels: {
+              boxWidth: 12,
+              usePointStyle: false,
+              font: { size: 11, family: 'Arial, sans-serif' }
+            }
           },
           tooltip: {
             backgroundColor: '#25241f',
@@ -495,7 +515,10 @@
           }
         },
         scales: {
-          x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 45 } },
+          x: {
+            grid: { display: false },
+            ticks: { font: { size: 10 }, maxRotation: 45, color: '#68655e' }
+          },
           y: {
             type: 'linear',
             display: true,
@@ -503,7 +526,11 @@
             beginAtZero: true,
             suggestedMax: maxRev > 0 ? maxRev * 1.15 : 100,
             grid: { color: '#ece8dd' },
-            ticks: { callback: val => '$' + Number(val).toLocaleString(), font: { size: 10 } }
+            ticks: {
+              color: '#68655e',
+              callback: val => '$' + Number(val).toLocaleString(),
+              font: { size: 10 }
+            }
           },
           y1: {
             type: 'linear',
@@ -512,7 +539,12 @@
             beginAtZero: true,
             suggestedMax: maxOrders > 0 ? Math.ceil(maxOrders * 1.25) : 5,
             grid: { drawOnChartArea: false },
-            ticks: { precision: 0, font: { size: 10 }, stepSize: 1 }
+            ticks: {
+              precision: 0,
+              font: { size: 10 },
+              stepSize: 1,
+              color: '#4f5c46'
+            }
           }
         }
       }

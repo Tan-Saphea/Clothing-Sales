@@ -595,7 +595,7 @@ public class ReportService {
                 allList = List.of();
             }
 
-            if (allList.size() >= 2) {
+            if (allList.size() >= 14) {
                 return allList;
             }
 
@@ -605,13 +605,12 @@ public class ReportService {
             Map<String, String> dayLabelMap = new LinkedHashMap<>();
             LocalDate today = LocalDate.now();
 
-            for (int i = 6; i >= 0; i--) {
+            for (int i = 27; i >= 0; i--) {
                 LocalDate d = today.minusDays(i);
                 String key = d.toString();
-                String dayName = d.getDayOfWeek().name().substring(0, 3);
                 revMap.put(key, BigDecimal.ZERO);
                 countMap.put(key, 0L);
-                dayLabelMap.put(key, dayName + " (" + d.format(fmt) + ")");
+                dayLabelMap.put(key, d.format(fmt));
             }
 
             for (Map<String, Object> r : allList) {
