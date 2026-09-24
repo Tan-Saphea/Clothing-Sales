@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/nav :: head('Purchases')}"></head>
+<body>
+<div class="app-wrapper">
+    <aside th:replace="~{fragments/nav :: sidebar('purchases')}"></aside>
+
+    <div class="main-wrapper">
+        <header th:replace="~{fragments/nav :: topbar('Purchases', 'Purchase Orders')}"></header>
+
+        <main class="content-body">
+            <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+                <div>
+                    <h3 class="fw-bold mb-1" style="color: var(--color-primary-navy);">Purchase orders</h3>
+                    <p class="text-muted mb-0">Record purchases and receive stock.</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <div class="search-box">
+                        
+                        <input type="text" id="purchaseSearch" class="form-control" placeholder="Search purchases...">
+                    </div>
+                    <button class="btn btn-brand-primary" data-bs-toggle="modal" data-bs-target="#newPurchaseModal">
+                         New Purchase Order
+                    </button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="table-pro" id="purchasesTable">
+                        <thead>
+                        <tr>
+                            <th style="width: 80px;">PO #</th>
+                            <th>Supplier</th>
+                            <th>Staff Member</th>
+                            <th>Purchase Date</th>
+                            <th>Status</th>
+                            <th>Total Cost</th>
+                            <th style="width: 170px;" class="text-end">Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:if="${#lists.isEmpty(purchases)}">
+                            <td colspan="7" class="text-center text-muted py-4">No purchase orders found.</td>
+                        </tr>
+                        <tr th:each="p : ${purchases}" th:id="'po-row-' + ${p['purchaseId']}">
+                            <td class="fw-bold text-muted" th:text="'PO-' + ${p['purchaseId']}">PO-1</td>
+                            <td class="fw-bold text-primary" th:text="${p['supplierName']}">Textile Mill</td>
+                            <td th:text="${p['employeeName']}">Admin</td>
+                            <td th:text="${p['purchaseDate']}">2026-09-16</td>
+                            <td>
+                                <span th:if="${p['status'] == 'COMPLETED'}" class="badge-status completed">[COMPLETED]</span>
+                                <span th:if="${p['status'] == 'PENDING'}" class="badge-status pending" th:id="'po-status-' + ${p['purchaseId']}">[PENDING]</span>
+                                <span th:if="${p['status'] != 'COMPLETED' and p['status'] != 'PENDING'}" class="badge-status inactive" th:text="${p['status']}">STATUS</span>
+                            </td>
+                            <td class="fw-bold" th:text="'$' + ${#numbers.formatDecimal(p['totalAmount'] ?: 0, 1, 2)}">$0.00</td>
+                            <td class="text-end">
+                                <div class="d-flex justify-content-end gap-1">
+                                    <button class="btn btn-sm btn-outline-info"
+                                            title="View Line Items"
+                                            th:data-id="${p['purchaseId']}"
+                                            onclick="viewPurchaseDetails(this.getAttribute('data-id'))">
+                                         View
+                                    </button>
+                                    <button th:if="${p['status'] == 'PENDING'}"
+                                            class="btn btn-sm btn-success"
+                                            th:id="'po-complete-btn-' + ${p['purchaseId']}"
+                                            th:data-id="${p['purchaseId']}"
+                                            title="Complete purchase and receive stock"
+                                            onclick="completePurchase(this.getAttribute('data-id'))">
+                                         Complete
+                                    </button>
+                                    <button th:if="${p['status'] == 'PENDING'}"
+                                            class="btn btn-sm btn-outline-danger"
+                                            th:data-id="${p['purchaseId']}"
+                                            title="Cancel pending purchase order"
+                                            onclick="cancelPurchase(this.getAttribute('data-id'))">
+                                         Cancel
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- New Purchase Order Modal -->
+<div class="modal fade" id="newPurchaseModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header-brand">
+                <h5 class="modal-title">
+                     Create Purchase Order
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="newPurchaseForm" onsubmit="submitNewPurchase(event)">
+                <div class="modal-body">
+                    <!-- PO Header Info -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Supplier <span class="text-danger">*</span></label>
+                            <select class="form-select" id="poSupplierId" required>
+                                <option value="">Select Supplier</option>
+                                <option th:each="s : ${suppliers}" th:value="${s.supplierId}" th:text="${s.supplierName}"></option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Assigned Employee <span class="text-danger">*</span></label>
+                            <select class="form-select" id="poEmployeeId" required>
+                                <option th:each="emp : ${employees}" th:value="${emp.employeeId}" th:text="${emp.employeeName}"></option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Order Note</label>
+                            <input type="text" class="form-control" id="poNote" placeholder="Invoice reference or delivery note...">
+                        </div>
+                    </div>
+
+                    <!-- Line Items Header -->
+                    <div class="d-flex align-items-center justify-content-between mb-2 mt-4">
+                        <h6 class="fw-bold mb-0 text-dark">Order Line Items</h6>
+                        <button type="button" class="btn btn-sm btn-brand-outline" onclick="addPurchaseRow()">
+                             Add Another Item
+                        </button>
+                    </div>
+
+                    <!-- Items Container -->
+                    <div id="purchaseItemsContainer" class="border rounded p-3 bg-light">
+                        <div class="row g-2 align-items-end mb-2 purchase-item-row" data-row-index="0">
+                            <div class="col-md-5">
+                                <label class="form-label small">Product Variant</label>
+                                <select class="form-select form-select-sm po-variant-select" required onchange="onPoVariantChange(this)">
+                                    <option value="">Select Apparel Variant</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small">Quantity</label>
+                                <input type="number" min="1" class="form-control form-control-sm po-quantity-input" value="10" required onchange="calculatePoTotal()">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small">Cost Price ($)</label>
+                                <input type="number" step="0.01" min="0" class="form-control form-control-sm po-cost-input" value="5.00" required onchange="calculatePoTotal()">
+                            </div>
+                            <div class="col-md-1 text-end">
+                                <button type="button" class="btn btn-sm btn-icon-sm btn-outline-danger" onclick="removePurchaseRow(this)" title="Remove item" aria-label="Remove item">
+                                    &times;
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Total Cost Summary -->
+                    <div class="d-flex justify-content-end align-items-center gap-3 mt-3">
+                        <span class="fs-6 text-muted fw-bold">Grand Estimated Cost:</span>
+                        <span class="fs-4 fw-bold text-primary" id="poTotalDisplay">$50.00</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm btn-brand-primary">
+                         Create & Process PO
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- View Purchase Details Modal -->
+<div class="modal fade" id="purchaseDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header-brand">
+                <h5 class="modal-title">
+                     Purchase Order Details: <span id="viewPoNumber"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive border rounded">
+                    <table class="table align-middle mb-0">
+                        <thead class="table-light">
+                        <tr>
+                            <th>Variant</th>
+                            <th>Cost Price</th>
+                            <th>Quantity</th>
+                            <th class="text-end">Subtotal</th>
+                        </tr>
+                        </thead>
+                        <tbody id="poDetailsTableBody">
+                        <tr><td colspan="4" class="text-center text-muted py-3">Loading details...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/nav :: dbModal}"></div>
+<div th:replace="~{fragments/nav :: scripts}"></div>
+
+<script>
+  let masterVariants = [];
+
+  setupTableSearch('purchaseSearch', 'purchasesTable');
+
+  async function loadMasterVariants() {
+    try {
+      masterVariants = await apiRequest('/api/variants');
+      populateVariantSelects();
+    } catch (e) {
+      console.error('Failed to load variants', e);
+    }
+  }
+
+  function getVariantOptionsHtml() {
+    let html = '<option value="">Select Apparel Variant</option>';
+    if (masterVariants && masterVariants.length) {
+      masterVariants.forEach(v => {
+        html += `<option value="${Number(v.variantId)}" data-cost="${Number(v.costPrice || 0)}">${escapeHtml(v.productName || 'Product')} - ${escapeHtml(v.sku)} (${escapeHtml(v.sizeName)}, ${escapeHtml(v.colorName)})</option>`;
+      });
+    }
+    return html;
+  }
+
+  function populateVariantSelects() {
+    const opts = getVariantOptionsHtml();
+    document.querySelectorAll('.po-variant-select').forEach(sel => {
+      const val = sel.value;
+      sel.innerHTML = opts;
+      if (val) sel.value = val;
+    });
+  }
+
+  function onPoVariantChange(selectEl) {
+    const selectedOption = selectEl.options[selectEl.selectedIndex];
+    const cost = selectedOption.getAttribute('data-cost');
+    const row = selectEl.closest('.purchase-item-row');
+    if (cost && row) {
+      const costInput = row.querySelector('.po-cost-input');
+      if (costInput) costInput.value = Number(cost).toFixed(2);
+    }
+    calculatePoTotal();
+  }
+
+  function addPurchaseRow() {
+    const container = document.getElementById('purchaseItemsContainer');
+    const row = document.createElement('div');
+    row.className = 'row g-2 align-items-end mb-2 purchase-item-row';
+
+    row.innerHTML = `
+      <div class="col-md-5">
+        <label class="form-label small">Product Variant</label>
+        <select class="form-select form-select-sm po-variant-select" required onchange="onPoVariantChange(this)">
+          ${getVariantOptionsHtml()}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small">Quantity</label>
+        <input type="number" min="1" class="form-control form-control-sm po-quantity-input" value="10" required onchange="calculatePoTotal()">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small">Cost Price ($)</label>
+        <input type="number" step="0.01" min="0" class="form-control form-control-sm po-cost-input" value="5.00" required onchange="calculatePoTotal()">
+      </div>
+      <div class="col-md-1 text-end">
+        <button type="button" class="btn btn-sm btn-icon-sm btn-outline-danger" onclick="removePurchaseRow(this)" title="Remove item" aria-label="Remove item">
+          &times;
+        </button>
+      </div>
+    `;
+    container.appendChild(row);
+    calculatePoTotal();
+  }
+
+  function removePurchaseRow(btn) {
+    const rows = document.querySelectorAll('.purchase-item-row');
+    if (rows.length <= 1) {
+      showToast('A purchase order must have at least one line item.', 'warning');
+      return;
+    }
+    btn.closest('.purchase-item-row').remove();
+    calculatePoTotal();
+  }
+
+  function calculatePoTotal() {
+    let grandTotal = 0;
+    document.querySelectorAll('.purchase-item-row').forEach(row => {
+      const qty = parseFloat(row.querySelector('.po-quantity-input').value) || 0;
+      const cost = parseFloat(row.querySelector('.po-cost-input').value) || 0;
+      grandTotal += (qty * cost);
+    });
+    document.getElementById('poTotalDisplay').textContent = '$' + grandTotal.toFixed(2);
+  }
+
+  async function submitNewPurchase(e) {
+    e.preventDefault();
+    const supplierId = document.getElementById('poSupplierId').value;
+    const employeeId = document.getElementById('poEmployeeId').value;
+    const note = document.getElementById('poNote').value.trim();
+
+    const items = Array.from(document.querySelectorAll('.purchase-item-row')).map(row => {
+      const variantId = row.querySelector('.po-variant-select').value;
+      const quantity = Number(row.querySelector('.po-quantity-input').value);
+      const costPrice = Number(row.querySelector('.po-cost-input').value);
+      return { variantId, quantity, costPrice };
+    });
+
+    if (!items.length || items.some(item => !item.variantId || !Number.isInteger(item.quantity) ||
+        item.quantity <= 0 || !Number.isFinite(item.costPrice) || item.costPrice < 0)) {
+      showToast('Check every purchase item, quantity, and cost.', 'warning');
+      return;
+    }
+
+    const variantIds = items.map(item => item.variantId);
+    if (new Set(variantIds).size !== variantIds.length) {
+      showToast('Each product variant may appear only once in a purchase order.', 'warning');
+      return;
+    }
+
+    try {
+      await apiRequest('/api/purchases', 'POST', { supplierId, employeeId, note, items });
+      showToast('Purchase Order created and inventory received successfully!', 'success');
+      bootstrap.Modal.getInstance(document.getElementById('newPurchaseModal')).hide();
+      setTimeout(() => window.location.reload(), 600);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  async function completePurchase(id) {
+    if (!confirm(`Complete purchase #${id} and receive stock?`)) return;
+
+    try {
+      await apiRequest(`/api/purchases/${id}/complete`, 'POST');
+      showToast(`PO #${id} completed and stock added!`, 'success');
+      const statusEl = document.getElementById('po-status-' + id);
+      if (statusEl) {
+        statusEl.className = 'badge-status completed';
+        statusEl.textContent = '[COMPLETED]';
+      }
+      const completeBtn = document.getElementById('po-complete-btn-' + id);
+      if (completeBtn) completeBtn.remove();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  async function cancelPurchase(id) {
+    const reason = prompt(`Why is purchase order #${id} being cancelled?`);
+    if (reason === null) return;
+    if (!reason.trim()) {
+      showToast('A cancellation reason is required.', 'warning');
+      return;
+    }
+    try {
+      await apiRequest(`/api/purchases/${id}/cancel?reason=${encodeURIComponent(reason.trim())}`, 'POST');
+      showToast(`Purchase order #${id} cancelled.`, 'success');
+      setTimeout(() => window.location.reload(), 400);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  async function viewPurchaseDetails(id) {
+    document.getElementById('viewPoNumber').textContent = `PO-${id}`;
+    const tbody = document.getElementById('poDetailsTableBody');
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">Loading details...</td></tr>';
+
+    const modal = new bootstrap.Modal(document.getElementById('purchaseDetailsModal'));
+    modal.show();
+
+    try {
+      const details = await apiRequest(`/api/purchases/${id}/details`);
+      if (!details || details.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">No line items recorded for this purchase order.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = details.map(d => `
+        <tr>
+          <td>
+            <div class="fw-bold">${escapeHtml(d.variant?.product?.productName || 'Apparel')}</div>
+            <div class="small text-muted">${escapeHtml(d.variant?.sku)}</div>
+          </td>
+          <td>$${Number(d.costPrice || 0).toFixed(2)}</td>
+          <td><span class="badge bg-light text-dark border px-2">${d.quantity}</span></td>
+          <td class="text-end fw-bold text-primary">$${Number(d.subtotal || 0).toFixed(2)}</td>
+        </tr>
+      `).join('');
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger py-3">${escapeHtml(err.message)}</td></tr>`;
+    }
+  }
+
+  async function checkUrlParamsForReorder() {
+    const params = new URLSearchParams(window.location.search);
+    const reorderVariantId = params.get('reorderVariantId');
+    if (!reorderVariantId) return;
+
+    const qty = parseInt(params.get('qty')) || 25;
+    const cost = parseFloat(params.get('cost')) || 0;
+
+    const modalEl = document.getElementById('newPurchaseModal');
+    if (!modalEl) return;
+
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
+
+    const firstRow = document.querySelector('.purchase-item-row');
+    if (firstRow) {
+      const select = firstRow.querySelector('.po-variant-select');
+      const qtyInput = firstRow.querySelector('.po-quantity-input');
+      const costInput = firstRow.querySelector('.po-cost-input');
+      if (select) select.value = reorderVariantId;
+      if (qtyInput) qtyInput.value = qty;
+      if (costInput && cost > 0) costInput.value = Number(cost).toFixed(2);
+      calculatePoTotal();
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    await loadMasterVariants();
+    checkUrlParamsForReorder();
+  });
+</script>
+</body>
+</html>

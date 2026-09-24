@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/nav :: head('User Control')}"></head>
+<body>
+<div class="app-wrapper">
+    <aside th:replace="~{fragments/nav :: sidebar('user-control')}"></aside>
+    <div class="main-wrapper">
+        <header th:replace="~{fragments/nav :: topbar('User Control', 'Administration / User Control')}"></header>
+        <main class="content-body">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h3 class="fw-bold mb-1">User Control</h3>
+                    <p class="text-muted mb-0">Create and manage cashier login accounts.</p>
+                    <p class="small text-muted mb-0 mt-1">Administrator: access to all modules. Cashier: Sales and Customers only. Cashier accounts are linked to a Staff employee profile.</p>
+                </div>
+                <button class="btn btn-brand-primary" onclick="openCreateCashier()">Create Cashier</button>
+            </div>
+            <div id="userMessage" class="alert d-none"></div>
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="table-pro mb-0">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Employee</th>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th>Last Login</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userRows"><tr><td colspan="7" class="text-center text-muted py-4">Loading accounts...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- Create Cashier Modal -->
+<div class="modal fade" id="cashierModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header-brand">
+                <h5 class="modal-title">Create Cashier Account</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="cashierForm" onsubmit="submitCreateCashier(event)">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Username <span class="text-danger">*</span></label>
+                            <input name="username" id="createUsername" class="form-control" required maxlength="80" autocomplete="off" placeholder="e.g. john_cashier">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Employee Name <span class="text-danger">*</span></label>
+                            <input name="employeeName" id="createEmployeeName" class="form-control" required placeholder="Full name">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Temporary Password <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <input name="password" id="createPassword" type="password" class="form-control" minlength="12" maxlength="72" required autocomplete="new-password" placeholder="12+ chars with upper/lower/number/symbol">
+                                <button type="button" class="btn btn-outline-secondary" onclick="togglePwd('createPassword', this)" tabindex="-1">Show</button>
+                            </div>
+                            <div class="form-text">The cashier will use this password to log in. Share it securely.</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Confirm Password <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <input id="createPasswordConfirm" type="password" class="form-control" minlength="12" maxlength="72" required autocomplete="new-password" placeholder="Re-enter password">
+                                <button type="button" class="btn btn-outline-secondary" onclick="togglePwd('createPasswordConfirm', this)" tabindex="-1">Show</button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Gender</label>
+                            <select name="gender" class="form-select">
+                                <option value="">Not specified</option>
+                                <option>Female</option>
+                                <option>Male</option>
+                                <option>Other</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Phone</label>
+                            <input name="phone" class="form-control" placeholder="e.g. 012 345 678">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email</label>
+                            <input name="email" type="email" class="form-control" placeholder="cashier@example.com">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Address</label>
+                            <input name="address" class="form-control" placeholder="Optional">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-brand-primary">Create Account</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Cashier Info Modal -->
+<div class="modal fade" id="editCashierModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header-brand">
+                <h5 class="modal-title">Edit Cashier Info: <span id="editCashierUsername" class="fw-bold"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editCashierForm" onsubmit="submitEditCashier(event)">
+                <input type="hidden" id="editCashierUserId">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">Employee Name <span class="text-danger">*</span></label>
+                            <input id="editEmployeeName" class="form-control" required placeholder="Full name">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Gender</label>
+                            <select id="editGender" class="form-select">
+                                <option value="">Not specified</option>
+                                <option>Female</option>
+                                <option>Male</option>
+                                <option>Other</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Phone</label>
+                            <input id="editPhone" class="form-control" placeholder="e.g. 012 345 678">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email</label>
+                            <input id="editEmail" type="email" class="form-control" placeholder="cashier@example.com">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Address</label>
+                            <input id="editAddress" class="form-control" placeholder="Optional">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-brand-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div class="modal fade" id="resetPasswordModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header-brand">
+                <h5 class="modal-title">Reset Password: <span id="resetPwdUsername" class="fw-bold"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="resetPasswordForm" onsubmit="submitResetPassword(event)">
+                <input type="hidden" id="resetPwdUserId">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">New Password <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <input id="newPassword" type="password" class="form-control" minlength="12" maxlength="72" required autocomplete="new-password" placeholder="12+ chars with upper/lower/number/symbol">
+                            <button type="button" class="btn btn-outline-secondary" onclick="togglePwd('newPassword', this)" tabindex="-1">Show</button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Confirm New Password <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <input id="newPasswordConfirm" type="password" class="form-control" minlength="12" maxlength="72" required autocomplete="new-password" placeholder="Re-enter new password">
+                            <button type="button" class="btn btn-outline-secondary" onclick="togglePwd('newPasswordConfirm', this)" tabindex="-1">Show</button>
+                        </div>
+                    </div>
+                    <div class="form-text text-muted">Use at least 12 characters with upper-case, lower-case, number, and symbol. Share it securely.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-brand-primary">Save New Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/nav :: scripts}"></div>
+<script>
+let users = [];
+const userMessage = document.getElementById('userMessage');
+
+function showUserMessage(text, type) {
+    userMessage.textContent = text;
+    userMessage.className = 'alert alert-' + type;
+    userMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (type === 'success') setTimeout(() => { userMessage.className = 'alert d-none'; }, 6000);
+}
+
+function togglePwd(inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    const isPassword = input.type === 'password';
+    input.type = isPassword ? 'text' : 'password';
+    btn.textContent = isPassword ? 'Hide' : 'Show';
+}
+
+function formatDateTime(iso) {
+    if (!iso) return '<span class="text-muted small">Never</span>';
+    try {
+        const d = new Date(iso);
+        return `<span title="${d.toLocaleString()}">${d.toLocaleDateString()}<br><small class="text-muted">${d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</small></span>`;
+    } catch { return iso; }
+}
+
+function openCreateCashier() {
+    const form = document.getElementById('cashierForm');
+    form.reset();
+    ['createPassword', 'createPasswordConfirm'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.type = 'password';
+    });
+    document.querySelectorAll('#cashierForm .btn-outline-secondary').forEach(btn => btn.textContent = 'Show');
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('cashierModal')).show();
+}
+
+async function loadUsers() {
+    try {
+        users = await apiRequest('/api/user-control');
+        document.getElementById('userRows').innerHTML = users.map(user => {
+            const isCashier = user.role === 'CASHIER';
+            const enableBtnClass = user.enabled ? 'btn-outline-danger' : 'btn-outline-success';
+            const enableBtnLabel = user.enabled ? 'Disable' : 'Enable';
+            return `<tr>
+                <td class="fw-bold">${escapeHtml(user.username)}</td>
+                <td>
+                    <div>${escapeHtml(user.employeeName)}</div>
+                    ${user.phone ? `<small class="text-muted">${escapeHtml(user.phone)}</small>` : ''}
+                </td>
+                <td><span class="badge bg-primary-subtle text-primary">${escapeHtml(user.role)}</span></td>
+                <td>${user.enabled
+                    ? '<span class="badge-status active">Active</span>'
+                    : '<span class="badge-status inactive">Inactive</span>'}</td>
+                <td class="small">${formatDateTime(user.createdAt)}</td>
+                <td class="small">${formatDateTime(user.lastLogin)}</td>
+                <td class="text-end">
+                    <div class="d-flex gap-1 justify-content-end flex-wrap">
+                        ${isCashier ? `
+                        <button class="btn btn-sm btn-outline-primary"
+                            onclick="openEditCashier(${Number(user.userId)})"
+                            title="Edit employee info">Edit</button>
+                        <button class="btn btn-sm btn-brand-outline"
+                            onclick="openResetPassword(${Number(user.userId)})"
+                            title="Reset login password">Password</button>
+                        <button class="btn btn-sm ${enableBtnClass}"
+                            onclick="toggleUser(${Number(user.userId)}, ${!user.enabled})">${enableBtnLabel}</button>
+                        <button class="btn btn-sm btn-outline-danger"
+                            onclick="deleteCashier(${Number(user.userId)})"
+                            title="Delete cashier account">Delete</button>
+                        ` : '<span class="text-muted small">Admin account</span>'}
+                    </div>
+                </td>
+            </tr>`;
+        }).join('');
+    } catch (error) {
+        showUserMessage(error.message, 'danger');
+    }
+}
+
+async function toggleUser(id, enabled) {
+    try {
+        await apiRequest('/api/user-control/' + id + '/status', 'PUT', { enabled });
+        showUserMessage('Account ' + (enabled ? 'enabled' : 'disabled') + ' successfully.', 'success');
+        loadUsers();
+    } catch (error) {
+        showUserMessage(error.message, 'danger');
+    }
+}
+
+async function submitCreateCashier(event) {
+    event.preventDefault();
+    const password = document.getElementById('createPassword').value;
+    const confirm = document.getElementById('createPasswordConfirm').value;
+    if (password !== confirm) {
+        showUserMessage('Passwords do not match. Please check and re-enter both passwords.', 'danger');
+        return;
+    }
+    if (password.length < 12) {
+        showUserMessage('Password must be at least 12 characters.', 'danger');
+        return;
+    }
+    try {
+        const data = Object.fromEntries(new FormData(event.target));
+        await apiRequest('/api/user-control/cashiers', 'POST', data);
+        bootstrap.Modal.getInstance(document.getElementById('cashierModal')).hide();
+        event.target.reset();
+        showUserMessage('Cashier account created successfully. Share the password with the cashier securely.', 'success');
+        loadUsers();
+    } catch (error) {
+        showUserMessage(error.message, 'danger');
+    }
+}
+
+function openEditCashier(userId) {
+    const user = users.find(u => Number(u.userId) === userId);
+    if (!user) return;
+    document.getElementById('editCashierUserId').value = userId;
+    document.getElementById('editCashierUsername').textContent = user.username;
+    document.getElementById('editEmployeeName').value = user.employeeName || '';
+    const genderSel = document.getElementById('editGender');
+    const gender = user.gender || '';
+    if (gender && !Array.from(genderSel.options).some(o => o.value === gender)) {
+        genderSel.add(new Option(gender, gender));
+    }
+    genderSel.value = gender;
+    document.getElementById('editPhone').value = user.phone || '';
+    document.getElementById('editEmail').value = user.email || '';
+    document.getElementById('editAddress').value = user.address || '';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('editCashierModal')).show();
+}
+
+async function submitEditCashier(event) {
+    event.preventDefault();
+    const userId = document.getElementById('editCashierUserId').value;
+    const data = {
+        employeeName: document.getElementById('editEmployeeName').value,
+        gender: document.getElementById('editGender').value,
+        phone: document.getElementById('editPhone').value,
+        email: document.getElementById('editEmail').value,
+        address: document.getElementById('editAddress').value
+    };
+    try {
+        await apiRequest('/api/user-control/' + userId, 'PUT', data);
+        bootstrap.Modal.getInstance(document.getElementById('editCashierModal')).hide();
+        showUserMessage('Cashier info updated successfully.', 'success');
+        loadUsers();
+    } catch (error) {
+        showUserMessage(error.message, 'danger');
+    }
+}
+
+function openResetPassword(userId) {
+    const user = users.find(item => Number(item.userId) === Number(userId));
+    if (!user) return;
+    document.getElementById('resetPwdUserId').value = userId;
+    document.getElementById('resetPwdUsername').textContent = user.username;
+    document.getElementById('newPassword').value = '';
+    document.getElementById('newPasswordConfirm').value = '';
+    ['newPassword', 'newPasswordConfirm'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.type = 'password';
+    });
+    document.querySelectorAll('#resetPasswordForm .btn-outline-secondary').forEach(btn => btn.textContent = 'Show');
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('resetPasswordModal')).show();
+}
+
+async function submitResetPassword(event) {
+    event.preventDefault();
+    const newPwd = document.getElementById('newPassword').value;
+    const confirmPwd = document.getElementById('newPasswordConfirm').value;
+    const userId = document.getElementById('resetPwdUserId').value;
+    if (newPwd !== confirmPwd) {
+        showUserMessage('Passwords do not match. Please check and re-enter.', 'danger');
+        return;
+    }
+    if (newPwd.length < 12) {
+        showUserMessage('Password must be at least 12 characters.', 'danger');
+        return;
+    }
+    try {
+        await apiRequest('/api/user-control/' + userId + '/password', 'PUT', { password: newPwd });
+        bootstrap.Modal.getInstance(document.getElementById('resetPasswordModal')).hide();
+        showUserMessage('Password reset successfully. Share the new password with the cashier securely.', 'success');
+    } catch (error) {
+        showUserMessage(error.message, 'danger');
+    }
+}
+
+async function deleteCashier(userId) {
+    const user = users.find(item => Number(item.userId) === Number(userId));
+    if (!user) return;
+    const username = user.username;
+    if (!confirm(`Delete cashier account "${username}"?\n\nIf they have linked sales or purchase records, the account will be deactivated instead.`)) return;
+    try {
+        const result = await apiRequest('/api/user-control/' + userId, 'DELETE');
+        showUserMessage(result.message, result.action === 'DEACTIVATED' ? 'warning' : 'success');
+        loadUsers();
+    } catch (error) {
+        showUserMessage(error.message, 'danger');
+    }
+}
+
+loadUsers();
+</script>
+</body>
+</html>

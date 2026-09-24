@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error - MyStyle Fashion</title>
+    <link rel="icon" type="image/png" th:href="@{/favicon.png}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link th:href="@{/css/style.css}" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f4f1e9;
+            color: #25241f;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+        .error-card {
+            background: #fffefa;
+            border: 1px solid #d9d5cb;
+            border-radius: 8px;
+            padding: 40px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 4px 16px rgba(37, 36, 31, 0.06);
+        }
+        .error-code {
+            font-size: 3rem;
+            font-weight: 700;
+            color: #8d4b40;
+            margin-bottom: 12px;
+            letter-spacing: -0.03em;
+        }
+        .error-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        .error-desc {
+            color: #68655e;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            margin-bottom: 24px;
+        }
+    </style>
+</head>
+<body>
+<div class="error-card">
+    <div class="error-code" th:text="${status ?: 404}">404</div>
+    <div class="error-title" th:text="${error ?: 'Page Not Found'}">Page Not Found</div>
+    <p class="error-desc" th:text="${message ?: 'The requested resource could not be found or an unexpected error occurred.'}">
+        The requested resource could not be found or an unexpected error occurred.
+    </p>
+    <div class="d-flex justify-content-center gap-2">
+        <a href="/" class="btn btn-brand-primary">Return home</a>
+    </div>
+</div>
+</body>
+</html>

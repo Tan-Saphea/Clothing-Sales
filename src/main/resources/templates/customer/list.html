@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/nav :: head('Customers')}"></head>
+<body>
+<div class="app-wrapper">
+    <aside th:replace="~{fragments/nav :: sidebar('customers')}"></aside>
+
+    <div class="main-wrapper">
+        <header th:replace="~{fragments/nav :: topbar('Customers', 'Customer Directory')}"></header>
+
+        <main class="content-body">
+            <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+                <div>
+                    <h3 class="fw-bold mb-1" style="color: var(--color-primary-navy);">Customers & Retail Clients</h3>
+                    <p class="text-muted mb-0">Manage customer contacts, purchasing history, and communication profiles.</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <div class="search-box">
+                        
+                        <input type="text" id="customerSearch" class="form-control" placeholder="Search customers...">
+                    </div>
+                    <button class="btn btn-brand-primary" data-bs-toggle="modal" data-bs-target="#addCustomerModal">
+                         Add Customer
+                    </button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="table-pro" id="customersTable">
+                        <thead>
+                        <tr>
+                            <th style="width: 80px;">ID</th>
+                            <th>Customer Name</th>
+                            <th>Gender</th>
+                            <th>Phone</th>
+                            <th>Email</th>
+                            <th>Address</th>
+                            <th style="width: 120px;" class="text-end">Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:if="${#lists.isEmpty(customers)}">
+                            <td colspan="7" class="text-center text-muted py-4">No customers registered yet.</td>
+                        </tr>
+                        <tr th:each="c : ${customers}" th:id="'cust-row-' + ${c.customerId}">
+                            <td class="fw-bold text-muted" th:text="'#' + ${c.customerId}">#1</td>
+                            <td class="fw-bold text-primary" th:id="'cust-name-' + ${c.customerId}" th:text="${c.customerName}">Sophea Tan</td>
+                            <td>
+                                <span class="badge bg-light text-dark border px-2" th:id="'cust-gender-' + ${c.customerId}" th:text="${c.gender ?: 'Unspecified'}">Male</span>
+                            </td>
+                            <td th:id="'cust-phone-' + ${c.customerId}" th:text="${c.phone ?: 'N/A'}">012999888</td>
+                            <td th:id="'cust-email-' + ${c.customerId}" th:text="${c.email ?: 'N/A'}">client@mail.com</td>
+                            <td class="text-muted small" th:id="'cust-addr-' + ${c.customerId}" th:text="${c.address ?: 'N/A'}">Phnom Penh</td>
+                            <td class="text-end">
+                                <div class="d-flex justify-content-end gap-1">
+                                    <button class="btn btn-sm btn-icon-sm btn-outline-primary"
+                                            title="Edit Customer"
+                                            th:onclick="'openEditCustomerModal(' + ${c.customerId} + ')'">
+                                        Edit
+                                    </button>
+                                    <button class="btn btn-sm btn-icon-sm btn-outline-danger"
+                                            title="Delete Customer"
+                                            th:onclick="'deleteCustomer(' + ${c.customerId} + ')'">
+                                        Delete
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- Add Customer Modal -->
+<div class="modal fade" id="addCustomerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header-brand">
+                <h5 class="modal-title">
+                     Add New Customer
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form onsubmit="submitCreateCustomer(event)">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Full Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="newCustName" required placeholder="e.g. Bopha Chan">
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Gender</label>
+                            <select class="form-select" id="newCustGender">
+                                <option value="Female">Female</option>
+                                <option value="Male" selected>Male</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Phone</label>
+                            <input type="text" class="form-control" id="newCustPhone" placeholder="012 888 999">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" id="newCustEmail" placeholder="customer@domain.com">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Address</label>
+                        <textarea class="form-control" id="newCustAddress" rows="2" placeholder="Street, District, City"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm btn-brand-primary">
+                         Create Customer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Customer Modal -->
+<div class="modal fade" id="editCustomerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header-brand">
+                <h5 class="modal-title">
+                     Edit Customer
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form onsubmit="submitEditCustomer(event)">
+                <input type="hidden" id="editCustId">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Full Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="editCustName" required>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Gender</label>
+                            <select class="form-select" id="editCustGender">
+                                <option value="Female">Female</option>
+                                <option value="Male">Male</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Phone</label>
+                            <input type="text" class="form-control" id="editCustPhone">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" id="editCustEmail">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Address</label>
+                        <textarea class="form-control" id="editCustAddress" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm btn-brand-primary">
+                         Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/nav :: dbModal}"></div>
+<div th:replace="~{fragments/nav :: scripts}"></div>
+
+<script>
+  setupTableSearch('customerSearch', 'customersTable');
+
+  async function submitCreateCustomer(e) {
+    e.preventDefault();
+    const customerName = document.getElementById('newCustName').value.trim();
+    const gender = document.getElementById('newCustGender').value;
+    const phone = document.getElementById('newCustPhone').value.trim();
+    const email = document.getElementById('newCustEmail').value.trim();
+    const address = document.getElementById('newCustAddress').value.trim();
+
+    try {
+      await apiRequest('/api/customers', 'POST', { customerName, gender, phone, email, address });
+      showToast('Customer registered successfully!', 'success');
+      bootstrap.Modal.getInstance(document.getElementById('addCustomerModal')).hide();
+      setTimeout(() => window.location.reload(), 600);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  function openEditCustomerModal(id) {
+    const name = document.getElementById('cust-name-' + id).innerText;
+    const gender = document.getElementById('cust-gender-' + id).innerText.trim();
+    const phone = document.getElementById('cust-phone-' + id).innerText;
+    const email = document.getElementById('cust-email-' + id).innerText;
+    const addr = document.getElementById('cust-addr-' + id).innerText;
+
+    document.getElementById('editCustId').value = id;
+    document.getElementById('editCustName').value = name;
+    document.getElementById('editCustGender').value = gender === 'Unspecified' ? 'Male' : gender;
+    document.getElementById('editCustPhone').value = phone === 'N/A' ? '' : phone;
+    document.getElementById('editCustEmail').value = email === 'N/A' ? '' : email;
+    document.getElementById('editCustAddress').value = addr === 'N/A' ? '' : addr;
+
+    const modal = new bootstrap.Modal(document.getElementById('editCustomerModal'));
+    modal.show();
+  }
+
+  async function submitEditCustomer(e) {
+    e.preventDefault();
+    const id = document.getElementById('editCustId').value;
+    const customerName = document.getElementById('editCustName').value.trim();
+    const gender = document.getElementById('editCustGender').value;
+    const phone = document.getElementById('editCustPhone').value.trim();
+    const email = document.getElementById('editCustEmail').value.trim();
+    const address = document.getElementById('editCustAddress').value.trim();
+
+    try {
+      await apiRequest(`/api/customers/${id}`, 'PUT', { customerName, gender, phone, email, address });
+      showToast('Customer updated successfully!', 'success');
+      bootstrap.Modal.getInstance(document.getElementById('editCustomerModal')).hide();
+      setTimeout(() => window.location.reload(), 600);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  async function deleteCustomer(id) {
+    if (!confirm(`Are you sure you want to delete Customer #${id}?`)) return;
+    try {
+      await apiRequest(`/api/customers/${id}`, 'DELETE');
+      showToast('Customer deleted successfully.', 'success');
+      const row = document.getElementById('cust-row-' + id);
+      if (row) row.remove();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+</script>
+</body>
+</html>

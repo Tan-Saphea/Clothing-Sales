@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<!-- Head Fragment -->
+<head th:fragment="head(title)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="_csrf" th:content="${_csrf.token}">
+    <meta name="_csrf_header" th:content="${_csrf.headerName}">
+    <title th:text="${title} + ' - MyStyle Fashion Management System'">MyStyle</title>
+    <link rel="icon" type="image/png" th:href="@{/favicon.png}">
+    <!-- Bootstrap 5.3.3 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom Theme Stylesheet -->
+    <link th:href="@{/css/style.css}" rel="stylesheet">
+</head>
+
+<!-- Sidebar Fragment -->
+<aside th:fragment="sidebar(activePage)" class="sidebar">
+    <div class="sidebar-header">
+        <a th:href="${isAdmin} ? '/dashboard' : '/sales'" class="brand-title">
+            <div class="d-flex flex-column gap-1">
+                <img th:src="@{/images/mystyle-logo-banner.png}" alt="MyStyle" class="sidebar-brand-logo">
+            </div>
+        </a>
+    </div>
+
+    <div class="sidebar-nav">
+        <div class="nav-section-label" th:if="${isAdmin}">Main Menu</div>
+        <a href="/dashboard" th:if="${isAdmin}" th:class="'nav-item-link ' + (${activePage == 'dashboard'} ? 'active' : '')">
+            
+            <span>Dashboard</span>
+        </a>
+
+        <div class="nav-section-label" th:if="${isAdmin}">Inventory &amp; Catalog</div>
+        <a href="/categories" th:if="${isAdmin}" th:class="'nav-item-link ' + (${activePage == 'categories'} ? 'active' : '')">
+            
+            <span>Categories</span>
+        </a>
+        <a href="/products" th:if="${isAdmin}" th:class="'nav-item-link ' + (${activePage == 'products'} ? 'active' : '')">
+            
+            <span>Products</span>
+        </a>
+        <a href="/stock" th:if="${isAdmin}" th:class="'nav-item-link ' + (${activePage == 'stock'} ? 'active' : '')">
+            
+            <span>Stock & Movements</span>
+        </a>
+
+        <div class="nav-section-label" th:if="${isAdmin}">People &amp; Partners</div>
+        <a href="/suppliers" th:if="${isAdmin}" th:class="'nav-item-link ' + (${activePage == 'suppliers'} ? 'active' : '')">
+            
+            <span>Suppliers</span>
+        </a>
+        <div class="nav-section-label" th:if="${isAdmin}">Administration</div>
+        <a href="/user-control" th:if="${isAdmin}" th:class="'nav-item-link ' + (${activePage == 'user-control'} ? 'active' : '')">
+            <span>User Control</span>
+        </a>
+        <a href="/staff" th:if="${isAdmin}" th:class="'nav-item-link ' + (${activePage == 'staff'} ? 'active' : '')">
+            <span>Staff</span>
+        </a>
+        <a href="/audit-log" th:if="${isAdmin}" th:class="'nav-item-link ' + (${activePage == 'audit-log'} ? 'active' : '')">
+            <span>Audit Log</span>
+        </a>
+
+        <div class="nav-section-label" th:text="${isAdmin} ? 'Transactions' : 'Point of Sale'">Transactions</div>
+        <a href="/purchases" th:if="${isAdmin}" th:class="'nav-item-link ' + (${activePage == 'purchases'} ? 'active' : '')">
+            
+            <span>Purchases</span>
+        </a>
+        <a href="/sales" th:class="'nav-item-link ' + (${activePage == 'sales'} ? 'active' : '')">
+            
+            <span>Sales & Orders</span>
+        </a>
+        <a href="/customers" th:class="'nav-item-link ' + (${activePage == 'customers'} ? 'active' : '')">
+            <span>Customers</span>
+        </a>
+
+        <div class="nav-section-label" th:if="${isAdmin}">Reports</div>
+        <a href="/reports" th:if="${isAdmin}" th:class="'nav-item-link ' + (${activePage == 'reports'} ? 'active' : '')">
+            
+            <span>Reports & Views</span>
+        </a>
+    </div>
+
+    <div class="sidebar-footer">
+        <div class="user-profile-widget">
+            <div class="user-info">
+                <div class="user-avatar">
+                    
+                </div>
+                <div>
+                    <div class="fw-bold text-white small" th:text="${currentUsername ?: 'User'}">User</div>
+                    <div class="text-white-50" style="font-size: 0.75rem;" th:text="${isAdmin} ? 'Administrator' : 'Cashier'">Signed in</div>
+                </div>
+            </div>
+            <form th:action="@{/logout}" method="post" class="m-0">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <button type="submit" class="btn btn-sm btn-outline-secondary" title="Sign Out">Sign out</button>
+            </form>
+        </div>
+    </div>
+</aside>
+
+<!-- Topbar Fragment -->
+<header th:fragment="topbar(pageTitle, breadcrumb)" class="topbar">
+    <div class="breadcrumb-container">
+        <a th:href="${isAdmin} ? '/dashboard' : '/sales'">Home</a>
+        <span class="separator">/</span>
+        <span class="current" th:text="${breadcrumb ?: pageTitle}">Dashboard</span>
+    </div>
+
+    <div class="topbar-actions" th:if="${isAdmin}">
+        <!-- Live Connection Pill -->
+        <button id="topbar-db-pill" class="connection-pill" title="Click to test database connection">
+            <span class="pulse-dot"></span>
+            <span id="topbar-db-text">Checking database</span>
+        </button>
+    </div>
+</header>
+
+<!-- Global Database Diagnostic Modal Fragment -->
+<div th:fragment="dbModal" class="modal fade" id="dbCheckModal" tabindex="-1" aria-labelledby="dbCheckModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header-brand">
+                <h5 class="modal-title" id="dbCheckModalLabel">
+                    
+                    Database connection
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="dbCheckModalBody">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Testing connection...</span>
+                    </div>
+                    <p class="mt-2 text-muted fw-semibold">Checking database...</p>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-sm btn-brand-primary" onclick="checkDatabaseConnection(true)">
+                    Check again
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts Fragment -->
+<div th:fragment="scripts">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script th:src="@{/js/app.js}"></script>
+</div>
+
+</html>

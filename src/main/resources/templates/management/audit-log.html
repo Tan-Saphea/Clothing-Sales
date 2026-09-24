@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/nav :: head('Audit Log')}"></head>
+<body>
+<div class="app-wrapper">
+    <aside th:replace="~{fragments/nav :: sidebar('audit-log')}"></aside>
+    <div class="main-wrapper">
+        <header th:replace="~{fragments/nav :: topbar('Audit Log', 'Administration / Audit Log')}"></header>
+        <main class="content-body">
+
+            <!-- Page Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h3 class="fw-bold mb-1">Audit Log</h3>
+                    <p class="text-muted mb-0">Database activity log — records all INSERT, UPDATE, and DELETE operations.</p>
+                </div>
+                <button class="btn btn-outline-secondary" onclick="loadAuditLog()">Refresh</button>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <div class="card text-center py-3">
+                        <div class="fs-2 fw-bold text-brand" id="cardTotal">—</div>
+                        <div class="text-muted small">Total Entries</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center py-3">
+                        <div class="fs-2 fw-bold text-success" id="cardInsert">—</div>
+                        <div class="text-muted small">INSERT</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center py-3">
+                        <div class="fs-2 fw-bold text-primary" id="cardUpdate">—</div>
+                        <div class="text-muted small">UPDATE</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center py-3">
+                        <div class="fs-2 fw-bold text-danger" id="cardDelete">—</div>
+                        <div class="text-muted small">DELETE</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="card mb-3">
+                <div class="card-body py-3">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label small mb-1">Search</label>
+                            <input type="text" id="filterSearch" class="form-control form-control-sm" placeholder="Table name or details..." oninput="applyFilters()">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small mb-1">Action Type</label>
+                            <select id="filterAction" class="form-select form-select-sm" onchange="applyFilters()">
+                                <option value="">All Actions</option>
+                                <option value="INSERT">INSERT</option>
+                                <option value="UPDATE">UPDATE</option>
+                                <option value="DELETE">DELETE</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small mb-1">Table</label>
+                            <select id="filterTable" class="form-select form-select-sm" onchange="applyFilters()">
+                                <option value="">All Tables</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small mb-1">Limit</label>
+                            <select id="limitSelect" class="form-select form-select-sm" onchange="loadAuditLog()">
+                                <option value="100">Last 100</option>
+                                <option value="200" selected>Last 200</option>
+                                <option value="500">Last 500</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-sm btn-outline-secondary w-100" onclick="clearFilters()">Clear Filters</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="auditMessage" class="alert d-none mb-3"></div>
+
+            <!-- Audit Log Table -->
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="table-pro mb-0">
+                        <thead>
+                            <tr>
+                                <th>Date / Time</th>
+                                <th>Table</th>
+                                <th>Action</th>
+                                <th>Record ID</th>
+                                <th>DB User</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="auditRows">
+                            <tr><td colspan="6" class="text-center text-muted py-4">Loading audit log...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="px-4 py-2 border-top d-flex justify-content-between align-items-center">
+                    <small class="text-muted" id="auditCount">—</small>
+                    <small class="text-muted">Showing most recent entries first</small>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<div th:replace="~{fragments/nav :: scripts}"></div>
+<script>
+let allLogs = [];
+const auditMessage = document.getElementById('auditMessage');
+
+function showAuditMessage(text, type) {
+    auditMessage.textContent = text;
+    auditMessage.className = 'alert alert-' + type;
+    if (type === 'success') setTimeout(() => { auditMessage.className = 'alert d-none'; }, 5000);
+}
+
+function actionBadge(action) {
+    if (!action) return '<span class="text-muted small">—</span>';
+    const a = action.trim().toUpperCase();
+    const colorMap = {
+        'INSERT': 'success',
+        'UPDATE': 'primary',
+        'DELETE': 'danger'
+    };
+    const color = colorMap[a] || 'secondary';
+    return `<span class="badge bg-${color}-subtle text-${color} fw-semibold">${escapeHtml(action)}</span>`;
+}
+
+function formatDateTime(iso) {
+    if (!iso) return '<span class="text-muted small">—</span>';
+    try {
+        const d = new Date(iso);
+        return `<div class="small">${d.toLocaleDateString()}</div><div class="text-muted" style="font-size:0.78rem">${d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'})}</div>`;
+    } catch { return escapeHtml(iso); }
+}
+
+function populateTableFilter(logs) {
+    const tables = [...new Set(logs.map(l => l.tableName).filter(Boolean))].sort();
+    const sel = document.getElementById('filterTable');
+    const current = sel.value;
+    sel.innerHTML = '<option value="">All Tables</option>' +
+        tables.map(t => `<option value="${escapeHtml(t)}" ${t === current ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('');
+}
+
+function updateCards(logs) {
+    document.getElementById('cardTotal').textContent = logs.length;
+    document.getElementById('cardInsert').textContent = logs.filter(l => l.actionType === 'INSERT').length;
+    document.getElementById('cardUpdate').textContent = logs.filter(l => l.actionType === 'UPDATE').length;
+    document.getElementById('cardDelete').textContent = logs.filter(l => l.actionType === 'DELETE').length;
+}
+
+function applyFilters() {
+    const search = (document.getElementById('filterSearch').value || '').toLowerCase();
+    const action = (document.getElementById('filterAction').value || '').toUpperCase();
+    const table = document.getElementById('filterTable').value || '';
+
+    const filtered = allLogs.filter(log => {
+        if (action && (log.actionType || '').toUpperCase() !== action) return false;
+        if (table && log.tableName !== table) return false;
+        if (search) {
+            const haystack = [log.tableName, log.actionType, log.dbUser, log.details, String(log.recordId || '')]
+                .join(' ').toLowerCase();
+            if (!haystack.includes(search)) return false;
+        }
+        return true;
+    });
+
+    renderLogs(filtered);
+}
+
+function renderLogs(logs) {
+    document.getElementById('auditCount').textContent = `Showing ${logs.length} of ${allLogs.length} entries`;
+    if (logs.length === 0) {
+        document.getElementById('auditRows').innerHTML =
+            `<tr><td colspan="6" class="text-center text-muted py-5">No audit log entries match the current filter.</td></tr>`;
+        return;
+    }
+    document.getElementById('auditRows').innerHTML = logs.map(log => `
+        <tr>
+            <td>${formatDateTime(log.actionDate)}</td>
+            <td><span class="fw-semibold small">${escapeHtml(log.tableName || '—')}</span></td>
+            <td>${actionBadge(log.actionType)}</td>
+            <td class="text-muted small">${log.recordId != null ? log.recordId : '—'}</td>
+            <td class="small">${escapeHtml(log.dbUser || '—')}</td>
+            <td class="small text-muted" style="max-width:320px; word-break:break-word;">${escapeHtml(log.details || '—')}</td>
+        </tr>
+    `).join('');
+}
+
+async function loadAuditLog() {
+    const limit = document.getElementById('limitSelect').value || 200;
+    document.getElementById('auditRows').innerHTML =
+        `<tr><td colspan="6" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>Loading...</td></tr>`;
+    try {
+        allLogs = await apiRequest('/api/admin/audit-log?limit=' + limit);
+        updateCards(allLogs);
+        populateTableFilter(allLogs);
+        applyFilters();
+    } catch (error) {
+        showAuditMessage(error.message, 'danger');
+        document.getElementById('auditRows').innerHTML =
+            `<tr><td colspan="6" class="text-center text-danger py-4">${escapeHtml(error.message)}</td></tr>`;
+    }
+}
+
+function clearFilters() {
+    document.getElementById('filterSearch').value = '';
+    document.getElementById('filterAction').value = '';
+    document.getElementById('filterTable').value = '';
+    applyFilters();
+}
+
+loadAuditLog();
+</script>
+</body>
+</html>

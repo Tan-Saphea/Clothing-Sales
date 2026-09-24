@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:replace="~{fragments/nav :: head('Analytics & Reports')}"></th:block>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<div class="app-wrapper">
+    <aside th:replace="~{fragments/nav :: sidebar('reports')}"></aside>
+
+    <div class="main-wrapper">
+        <header th:replace="~{fragments/nav :: topbar('Reports', 'Reports & Multi-Period Analytics')}"></header>
+
+        <main class="content-body">
+            <!-- Printable Report Header (Visible Only in Print Mode) -->
+            <div class="print-only-header d-none d-print-block">
+
+                <!-- Logo + Store Info Row -->
+                <div class="prnt-header-row">
+                    <!-- LEFT: Logo + Store Brand -->
+                    <div class="prnt-brand">
+                        <!-- MyStyle SVG Logo Mark -->
+                        <svg class="prnt-logo-svg" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="52" height="52" rx="4" fill="#25241f"/>
+                            <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle"
+                                  font-family="Georgia, serif" font-size="22" font-weight="700"
+                                  fill="#f4f1e9" letter-spacing="-1">M</text>
+                        </svg>
+                        <div class="prnt-brand-text">
+                            <div class="prnt-store-name">MyStyle Fashion</div>
+                            <div class="prnt-store-sub">Retail Management System &bull; Phnom Penh, Cambodia</div>
+                        </div>
+                    </div>
+                    <!-- RIGHT: Report Meta -->
+                    <div class="prnt-meta">
+                        <div class="prnt-report-title" id="printReportTitle">CASHIER PERFORMANCE REPORT</div>
+                        <div class="prnt-meta-row"><span>Printed:</span> <strong id="printDateCurrent"></strong></div>
+                        <div class="prnt-meta-row"><span>Currency:</span> <strong>USD ($)</strong></div>
+                        <div class="prnt-meta-row"><span>System:</span> <strong>MyStyle POS v2</strong></div>
+                    </div>
+                </div>
+
+                <!-- Divider -->
+                <div class="prnt-divider"></div>
+
+                <!-- KPI Summary Strip -->
+                <div class="prnt-kpi-strip">
+                    <div class="prnt-kpi-item">
+                        <div class="prnt-kpi-label">Total Net Revenue</div>
+                        <div class="prnt-kpi-value" th:text="${'$' + #numbers.formatDecimal(kpi['totalNetSales'] ?: 0, 1, 2)}">$0.00</div>
+                    </div>
+                    <div class="prnt-kpi-sep"></div>
+                    <div class="prnt-kpi-item">
+                        <div class="prnt-kpi-label">Completed Orders</div>
+                        <div class="prnt-kpi-value" th:text="${#numbers.formatInteger(kpi['totalOrders'] ?: 0, 1)}">0</div>
+                    </div>
+                    <div class="prnt-kpi-sep"></div>
+                    <div class="prnt-kpi-item">
+                        <div class="prnt-kpi-label">Inventory Cost</div>
+                        <div class="prnt-kpi-value" th:text="${'$' + #numbers.formatDecimal(kpi['totalInventoryCostValue'] ?: 0, 1, 2)}">$0.00</div>
+                    </div>
+                    <div class="prnt-kpi-sep"></div>
+                    <div class="prnt-kpi-item">
+                        <div class="prnt-kpi-label">Retail Valuation</div>
+                        <div class="prnt-kpi-value" th:text="${'$' + #numbers.formatDecimal(kpi['totalInventorySaleValue'] ?: 0, 1, 2)}">$0.00</div>
+                    </div>
+                    <div class="prnt-kpi-sep"></div>
+                    <div class="prnt-kpi-item">
+                        <div class="prnt-kpi-label">Low Stock Alerts</div>
+                        <div class="prnt-kpi-value" th:text="${kpi['lowStockCount'] ?: 0}">0</div>
+                    </div>
+                </div>
+
+                <div class="prnt-divider" style="margin-bottom: 14pt;"></div>
+            </div>
+
+            <!-- Screen Action Header -->
+            <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+                <div>
+                    <h3 class="fw-bold mb-1" style="color: var(--ink);">Reports & Analytics</h3>
+                    <p class="text-muted mb-0">Track sales performance by cashier, daily, weekly, monthly, and yearly timeframes.</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-brand-outline" onclick="exportActiveTableToCSV()">
+                        Export CSV
+                    </button>
+                    <button class="btn btn-brand-primary" onclick="triggerCleanPrint()">
+                        Print Report
+                    </button>
+                </div>
+            </div>
+
+            <!-- Screen KPI Cards -->
+            <div class="row g-3 mb-4">
+                <div class="col-xl-3 col-md-6">
+                    <div class="metric-card-pro">
+                        <div class="metric-header d-flex justify-content-between align-items-start">
+                            <span class="metric-label">Total Net Revenue</span>
+                            <span class="badge bg-light text-dark border px-2 py-0 small">All Time</span>
+                        </div>
+                        <div class="metric-val" th:text="${'$' + #numbers.formatDecimal(kpi['totalNetSales'] ?: 0, 1, 2)}">$0.00</div>
+                        <div class="metric-sub">Net revenue from completed sales</div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6">
+                    <div class="metric-card-pro">
+                        <div class="metric-header d-flex justify-content-between align-items-start">
+                            <span class="metric-label">Total Sales Orders</span>
+                            <span class="badge bg-light text-dark border px-2 py-0 small">All Time</span>
+                        </div>
+                        <div class="metric-val" th:text="${#numbers.formatInteger(kpi['totalOrders'] ?: 0, 1)}">0</div>
+                        <div class="metric-sub">Completed transactions</div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6">
+                    <div class="metric-card-pro">
+                        <div class="metric-header d-flex justify-content-between align-items-start">
+                            <span class="metric-label">Inventory Cost Value</span>
+                            <span class="badge bg-light text-dark border px-2 py-0 small">Current</span>
+                        </div>
+                        <div class="metric-val" th:text="${'$' + #numbers.formatDecimal(kpi['totalInventoryCostValue'] ?: 0, 1, 2)}">$0.00</div>
+                        <div class="metric-sub">Wholesale stock valuation</div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6">
+                    <div class="metric-card-pro">
+                        <div class="metric-header d-flex justify-content-between align-items-start">
+                            <span class="metric-label">Potential Retail Value</span>
+                            <span class="badge bg-light text-dark border px-2 py-0 small">Current</span>
+                        </div>
+                        <div class="metric-val text-primary" th:text="${'$' + #numbers.formatDecimal(kpi['totalInventorySaleValue'] ?: 0, 1, 2)}">$0.00</div>
+                        <div class="metric-sub">Expected retail sales value</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visual Charts Row -->
+            <div class="row g-4 mb-4">
+                <div class="col-lg-8">
+                    <div class="card h-100 p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="fw-bold text-dark mb-0">Daily Sales Trend</h5>
+                            <span class="badge bg-light text-dark border px-2 py-1">Recent Days</span>
+                        </div>
+                        <div style="position: relative; height: 260px;">
+                            <canvas id="dailySalesChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="card h-100 p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="fw-bold text-dark mb-0">Cashier Sales Share</h5>
+                            <span class="badge bg-light text-dark border px-2 py-1">Revenue Share</span>
+                        </div>
+                        <div style="position: relative; height: 260px;">
+                            <canvas id="cashierShareChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabbed Reports Navigation -->
+            <ul class="nav nav-pills mb-3 gap-2 flex-wrap" id="reportTabs" role="tablist">
+                <li class="nav-item">
+                    <button class="nav-link active fw-bold px-3 py-2" id="tab-cashier-btn" data-bs-toggle="pill" data-bs-target="#tab-cashier" type="button" onclick="updatePrintReportTitle('CASHIER SALES PERFORMANCE REPORT')">
+                        Cashier Performance
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link fw-bold px-3 py-2" id="tab-daily-btn" data-bs-toggle="pill" data-bs-target="#tab-daily" type="button" onclick="updatePrintReportTitle('DAILY SALES REPORT')">
+                        Daily Sales
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link fw-bold px-3 py-2" id="tab-weekly-btn" data-bs-toggle="pill" data-bs-target="#tab-weekly" type="button" onclick="updatePrintReportTitle('WEEKLY SALES REPORT')">
+                        Weekly Sales
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link fw-bold px-3 py-2" id="tab-monthly-btn" data-bs-toggle="pill" data-bs-target="#tab-monthly" type="button" onclick="updatePrintReportTitle('MONTHLY SALES REPORT')">
+                        Monthly Sales
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link fw-bold px-3 py-2" id="tab-yearly-btn" data-bs-toggle="pill" data-bs-target="#tab-yearly" type="button" onclick="updatePrintReportTitle('YEARLY SALES REPORT')">
+                        Yearly Sales
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link fw-bold px-3 py-2" id="tab-product-btn" data-bs-toggle="pill" data-bs-target="#tab-product" type="button" onclick="updatePrintReportTitle('PRODUCT STOCK VALUATION REPORT')">
+                        Stock Valuation
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link fw-bold px-3 py-2 text-danger" id="tab-low-btn" data-bs-toggle="pill" data-bs-target="#tab-low" type="button" onclick="updatePrintReportTitle('LOW STOCK INVENTORY REPORT')">
+                        Low Stock List
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content">
+                <!-- 0. Cashier Performance Table -->
+                <div class="tab-pane fade show active" id="tab-cashier" role="tabpanel">
+                    <div class="card mb-3 p-3">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div>
+                                <h6 class="fw-bold mb-0 text-dark">Cashier Sales Breakdown & Individual Metrics</h6>
+                                <p class="text-muted small mb-0">Sales revenue, transaction volume, and average order value per staff member.</p>
+                            </div>
+                            <div class="btn-group btn-group-sm" id="cashierPeriodFilterGroup" role="group">
+                                <button type="button" class="btn btn-outline-secondary active" onclick="loadCashierReport('all', this)">All Time</button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="loadCashierReport('daily', this)">Today</button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="loadCashierReport('weekly', this)">This Week</button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="loadCashierReport('monthly', this)">This Month</button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="loadCashierReport('yearly', this)">This Year</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="table-responsive">
+                            <table class="table-pro exportable-table" id="cashierReportTable">
+                                <thead>
+                                <tr>
+                                    <th class="text-start" style="width: 200px;">Cashier / Staff Name</th>
+                                    <th class="text-start" style="width: 140px;">Position</th>
+                                    <th class="text-end" style="width: 100px;">Orders</th>
+                                    <th class="text-end" style="width: 100px;">Units Sold</th>
+                                    <th class="text-end">Gross Subtotal</th>
+                                    <th class="text-end">Order Discounts</th>
+                                    <th class="text-end">Net Revenue</th>
+                                    <th class="text-end">Avg Order Value</th>
+                                    <th class="text-center" style="width: 120px;">Details</th>
+                                </tr>
+                                </thead>
+                                <tbody id="cashierTableBody">
+                                <tr th:if="${#lists.isEmpty(cashierSales)}">
+                                    <td colspan="9" class="text-center text-muted py-4">No cashier sales recorded yet.</td>
+                                </tr>
+                                <tr th:each="c : ${cashierSales}">
+                                    <td class="text-start fw-bold" th:text="${c['EMPLOYEE_NAME']}">Chanthy Sok</td>
+                                    <td class="text-start"><span class="badge bg-light text-dark border" th:text="${c['POSITION'] ?: 'Cashier'}">Store Manager</span></td>
+                                    <td class="text-end fw-bold" th:text="${c['TOTAL_ORDERS'] ?: 0}">0</td>
+                                    <td class="text-end" th:text="${c['TOTAL_UNITS'] ?: 0}">0</td>
+                                    <td class="text-end" th:text="'$' + ${#numbers.formatDecimal(c['GROSS_SUBTOTAL'] ?: 0, 1, 2)}">$0.00</td>
+                                    <td class="text-end text-muted" th:text="'$' + ${#numbers.formatDecimal(c['ORDER_DISCOUNT'] ?: 0, 1, 2)}">$0.00</td>
+                                    <td class="text-end fw-bold text-success" th:text="'$' + ${#numbers.formatDecimal(c['NET_REVENUE'] ?: 0, 1, 2)}">$0.00</td>
+                                    <td class="text-end fw-bold" th:text="'$' + ${#numbers.formatDecimal(c['AVG_ORDER_VALUE'] ?: 0, 1, 2)}">$0.00</td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-brand-outline py-0 px-2"
+                                                th:attr="data-id=${c['EMPLOYEE_ID']},data-name=${c['EMPLOYEE_NAME']}"
+                                                onclick="openCashierDrilldown(this.getAttribute('data-id'), this.getAttribute('data-name'))">
+                                            View Orders
+                                        </button>
+                                    </td>
+                                </tr>
+                                </tbody>
+                                <tfoot id="cashierReportTfoot">
+                                <tr>
+                                    <th colspan="2" class="text-start">Total:</th>
+                                    <th class="text-end" id="cashierTotalOrders">0</th>
+                                    <th class="text-end" id="cashierTotalUnits">0</th>
+                                    <th class="text-end" id="cashierTotalGross">$0.00</th>
+                                    <th class="text-end" id="cashierTotalDisc">$0.00</th>
+                                    <th class="text-end" id="cashierTotalNet">$0.00</th>
+                                    <th class="text-end" id="cashierTotalAvg">$0.00</th>
+                                    <th></th>
+                                </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 1. Daily Sales Table -->
+                <div class="tab-pane fade" id="tab-daily" role="tabpanel">
+                    <div class="card">
+                        <div class="table-responsive">
+                            <table class="table-pro exportable-table" id="dailyReportTable">
+                                <thead>
+                                <tr>
+                                    <th class="text-start" style="width: 140px;">Date</th>
+                                    <th class="text-end" style="width: 130px;">Transactions</th>
+                                    <th class="text-end">Gross Subtotal</th>
+                                    <th class="text-end">Order Discounts</th>
+                                    <th class="text-end">Net Revenue</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:if="${#lists.isEmpty(dailySales)}">
+                                    <td colspan="5" class="text-center text-muted py-4">No daily sales data available.</td>
+                                </tr>
+                                <tr th:each="d : ${dailySales}">
+                                    <td class="text-start fw-bold" th:text="${d['SALE_DAY']}">2026-09-16</td>
+                                    <td class="text-end" th:text="${d['TOTAL_SALES']}">1</td>
+                                    <td class="text-end" th:text="'$' + ${#numbers.formatDecimal(d['SUBTOTAL'] ?: 0, 1, 2)}">$0.00</td>
+                                    <td class="text-end" th:text="'$' + ${#numbers.formatDecimal(d['ORDER_DISCOUNT'] ?: 0, 1, 2)}">$0.00</td>
+                                    <td class="text-end fw-bold" th:text="'$' + ${#numbers.formatDecimal(d['NET_SALES'] ?: 0, 1, 2)}">$0.00</td>
+                                </tr>
+                                </tbody>
+                                <tfoot id="dailyReportTfoot">
+                                <tr>
+                                    <th class="text-start">Total:</th>
+                                    <th class="text-end" id="dailyTotalOrders">0</th>
+                                    <th class="text-end" id="dailyTotalGross">$0.00</th>
+                                    <th class="text-end" id="dailyTotalDisc">$0.00</th>
+                                    <th class="text-end" id="dailyTotalNet">$0.00</th>
+                                </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Weekly Sales Table -->
+                <div class="tab-pane fade" id="tab-weekly" role="tabpanel">
+                    <div class="card">
+                        <div class="table-responsive">
+                            <table class="table-pro exportable-table" id="weeklyReportTable">
+                                <thead>
+                                <tr>
+                                    <th class="text-start" style="width: 150px;">Week Starting (Mon)</th>
+                                    <th class="text-start" style="width: 150px;">Week Ending (Sun)</th>
+                                    <th class="text-end" style="width: 130px;">Total Orders</th>
+                                    <th class="text-end">Gross Subtotal</th>
+                                    <th class="text-end">Order Discounts</th>
+                                    <th class="text-end">Net Revenue</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:if="${#lists.isEmpty(weeklySales)}">
+                                    <td colspan="6" class="text-center text-muted py-4">No weekly sales data available.</td>
+                                </tr>
+                                <tr th:each="w : ${weeklySales}">
+                                    <td class="text-start fw-bold" th:text="${w['WEEK_START']}">2026-09-14</td>
+                                    <td class="text-start" th:text="${w['WEEK_END']}">2026-09-20</td>
+                                    <td class="text-end fw-bold" th:text="${w['TOTAL_SALES']}">1</td>
+                                    <td class="text-end" th:text="'$' + ${#numbers.formatDecimal(w['SUBTOTAL'] ?: 0, 1, 2)}">$0.00</td>
+                                    <td class="text-end" th:text="'$' + ${#numbers.formatDecimal(w['ORDER_DISCOUNT'] ?: 0, 1, 2)}">$0.00</td>
+                                    <td class="text-end fw-bold text-success" th:text="'$' + ${#numbers.formatDecimal(w['NET_SALES'] ?: 0, 1, 2)}">$0.00</td>
+                                </tr>
+                                </tbody>
+                                <tfoot id="weeklyReportTfoot">
+                                <tr>
+                                    <th colspan="2" class="text-start">Total:</th>
+                                    <th class="text-end" id="weeklyTotalOrders">0</th>
+                                    <th class="text-end" id="weeklyTotalGross">$0.00</th>
+                                    <th class="text-end" id="weeklyTotalDisc">$0.00</th>
+                                    <th class="text-end" id="weeklyTotalNet">$0.00</th>
+                                </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Monthly Sales Table -->
+                <div class="tab-pane fade" id="tab-monthly" role="tabpanel">
+                    <div class="card">
+                        <div class="table-responsive">
+                            <table class="table-pro exportable-table" id="monthlyReportTable">
+                                <thead>
+                                <tr>
+                                    <th class="text-start" style="width: 140px;">Month</th>
+                                    <th class="text-end" style="width: 130px;">Total Orders</th>
+                                    <th class="text-end">Subtotal</th>
+                                    <th class="text-end">Discounts</th>
+                                    <th class="text-end">Net Sales</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:if="${#lists.isEmpty(monthlySales)}">
+                                    <td colspan="5" class="text-center text-muted py-4">No monthly sales data available.</td>
+                                </tr>
+                                <tr th:each="m : ${monthlySales}">
+                                    <td class="text-start fw-bold" th:text="${m['SALE_MONTH']}">2026-09</td>
+                                    <td class="text-end" th:text="${m['TOTAL_SALES']}">1</td>
+                                    <td class="text-end" th:text="'$' + ${#numbers.formatDecimal(m['SUBTOTAL'] ?: 0, 1, 2)}">$0.00</td>
+                                    <td class="text-end" th:text="'$' + ${#numbers.formatDecimal(m['ORDER_DISCOUNT'] ?: 0, 1, 2)}">$0.00</td>
+                                    <td class="text-end fw-bold" th:text="'$' + ${#numbers.formatDecimal(m['NET_SALES'] ?: 0, 1, 2)}">$0.00</td>
+                                </tr>
+                                </tbody>
+                                <tfoot id="monthlyReportTfoot">
+                                <tr>
+                                    <th class="text-start">Total:</th>
+                                    <th class="text-end" id="monthlyTotalOrders">0</th>
+                                    <th class="text-end" id="monthlyTotalGross">$0.00</th>
+                                    <th class="text-end" id="monthlyTotalDisc">$0.00</th>
+                                    <th class="text-end" id="monthlyTotalNet">$0.00</th>
+                                </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Yearly Sales Table -->
+                <div class="tab-pane fade" id="tab-yearly" role="tabpanel">
+                    <div class="card">
+                        <div class="table-responsive">
+                            <table class="table-pro exportable-table" id="yearlyReportTable">
+                                <thead>
+                                <tr>
+                                    <th class="text-start" style="width: 140px;">Year</th>
+                                    <th class="text-end" style="width: 130px;">Total Orders</th>
+                                    <th class="text-end">Gross Subtotal</th>
+                                    <th class="text-end">Discounts</th>
+                                    <th class="text-end">Net Sales Revenue</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:if="${#lists.isEmpty(yearlySales)}">
+                                    <td colspan="5" class="text-center text-muted py-4">No yearly sales data available.</td>
+                                </tr>
+                                <tr th:each="y : ${yearlySales}">
+                                    <td class="text-start fw-bold" th:text="${y['SALE_YEAR']}">2026</td>
+                                    <td class="text-end fw-bold" th:text="${y['TOTAL_SALES']}">1</td>
+                                    <td class="text-end" th:text="'$' + ${#numbers.formatDecimal(y['SUBTOTAL'] ?: 0, 1, 2)}">$0.00</td>
+                                    <td class="text-end" th:text="'$' + ${#numbers.formatDecimal(y['ORDER_DISCOUNT'] ?: 0, 1, 2)}">$0.00</td>
+                                    <td class="text-end fw-bold text-success" th:text="'$' + ${#numbers.formatDecimal(y['NET_SALES'] ?: 0, 1, 2)}">$0.00</td>
+                                </tr>
+                                </tbody>
+                                <tfoot id="yearlyReportTfoot">
+                                <tr>
+                                    <th class="text-start">Total:</th>
+                                    <th class="text-end" id="yearlyTotalOrders">0</th>
+                                    <th class="text-end" id="yearlyTotalGross">$0.00</th>
+                                    <th class="text-end" id="yearlyTotalDisc">$0.00</th>
+                                    <th class="text-end" id="yearlyTotalNet">$0.00</th>
+                                </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. Product Stock Valuation Table -->
+                <div class="tab-pane fade" id="tab-product" role="tabpanel">
+                    <div class="card">
+                        <div class="table-responsive">
+                            <table class="table-pro exportable-table" id="productReportTable">
+                                <thead>
+                                <tr>
+                                    <th class="text-start">SKU</th>
+                                    <th class="text-start">Product Name</th>
+                                    <th class="text-start">Category</th>
+                                    <th class="text-end">Cost</th>
+                                    <th class="text-end">Price</th>
+                                    <th class="text-end">Units in Stock</th>
+                                    <th class="text-end">Cost Valuation</th>
+                                    <th class="text-end">Retail Valuation</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:if="${#lists.isEmpty(productStock)}">
+                                    <td colspan="8" class="text-center text-muted py-4">No inventory data available.</td>
+                                </tr>
+                                <tr th:each="p : ${productStock}">
+                                    <td class="text-start fw-bold" th:text="${p['SKU']}">TS-BLK-M</td>
+                                    <td class="text-start" th:text="${p['PRODUCT_NAME']}">Classic T-Shirt</td>
+                                    <td class="text-start" th:text="${p['CATEGORY_NAME']}">T-Shirts</td>
+                                    <td class="text-end" th:text="'$' + ${#numbers.formatDecimal(p['COST_PRICE'] ?: 0, 1, 2)}">$5.00</td>
+                                    <td class="text-end" th:text="'$' + ${#numbers.formatDecimal(p['SALE_PRICE'] ?: 0, 1, 2)}">$8.00</td>
+                                    <td class="text-end" th:text="${p['STOCK_QTY']}">18</td>
+                                    <td class="text-end" th:text="'$' + ${#numbers.formatDecimal(p['STOCK_COST_VALUE'] ?: 0, 1, 2)}">$90.00</td>
+                                    <td class="text-end fw-bold" th:text="'$' + ${#numbers.formatDecimal(p['STOCK_SALE_VALUE'] ?: 0, 1, 2)}">$144.00</td>
+                                </tr>
+                                </tbody>
+                                <tfoot id="productReportTfoot">
+                                <tr>
+                                    <th colspan="5" class="text-start">Inventory Totals:</th>
+                                    <th class="text-end" id="stockTotalUnits">0</th>
+                                    <th class="text-end" id="stockTotalCostVal">$0.00</th>
+                                    <th class="text-end" id="stockTotalRetailVal">$0.00</th>
+                                </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. Low Stock Table -->
+                <div class="tab-pane fade" id="tab-low" role="tabpanel">
+                    <div class="card">
+                        <div class="table-responsive">
+                            <table class="table-pro exportable-table" id="lowStockReportTable">
+                                <thead>
+                                <tr>
+                                    <th class="text-start">SKU</th>
+                                    <th class="text-start">Product Name</th>
+                                    <th class="text-start">Size</th>
+                                    <th class="text-start">Color</th>
+                                    <th class="text-end">Remaining Units</th>
+                                    <th class="text-end">Retail Price</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:if="${#lists.isEmpty(lowStock)}">
+                                    <td colspan="6" class="text-center text-success py-4">No low stock alerts recorded.</td>
+                                </tr>
+                                <tr th:each="l : ${lowStock}">
+                                    <td class="text-start fw-bold" th:text="${l['SKU']}">JN-BLU-M</td>
+                                    <td class="text-start" th:text="${l['PRODUCT_NAME']}">Slim Jeans</td>
+                                    <td class="text-start" th:text="${l['SIZE_NAME']}">M</td>
+                                    <td class="text-start" th:text="${l['COLOR_NAME']}">Blue</td>
+                                    <td class="text-end fw-bold" th:text="${l['STOCK_QTY']}">0</td>
+                                    <td class="text-end" th:text="'$' + ${#numbers.formatDecimal(l['SALE_PRICE'] ?: 0, 1, 2)}">$18.00</td>
+                                </tr>
+                                </tbody>
+                                <tfoot id="lowStockReportTfoot">
+                                <tr>
+                                    <th colspan="4" class="text-start">Total Low Stock Lines:</th>
+                                    <th class="text-end" id="lowStockTotalUnits">0</th>
+                                    <th class="text-end">-</th>
+                                </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Printable Report Footer (Visible Only in Print Mode) -->
+            <div class="print-only-footer d-none d-print-block">
+                <div class="prnt-footer-bar">
+                    <span>MyStyle Fashion &bull; Confidential Business Record &bull; Not for External Distribution</span>
+                    <span>Page 1 &bull; Printed: <span class="printTimestamp"></span></span>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- Cashier Orders Drill-down Modal -->
+<div class="modal fade" id="cashierOrdersModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title fw-bold" id="cashierModalTitle">Cashier Sales Details</h5>
+                    <div class="text-muted small" id="cashierModalSubtitle">Showing completed sales orders</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="table-responsive">
+                    <table class="table-pro mb-0">
+                        <thead>
+                        <tr>
+                            <th style="width: 100px;">Sale #</th>
+                            <th style="width: 130px;">Date</th>
+                            <th>Customer</th>
+                            <th class="text-end" style="width: 90px;">Units</th>
+                            <th class="text-end" style="width: 120px;">Subtotal</th>
+                            <th class="text-end" style="width: 120px;">Discount</th>
+                            <th class="text-end" style="width: 130px;">Grand Total</th>
+                            <th class="text-center" style="width: 100px;">Status</th>
+                        </tr>
+                        </thead>
+                        <tbody id="cashierOrdersTableBody">
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-4">Loading sales orders...</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer d-flex justify-content-between">
+                <div class="small text-muted" id="cashierOrdersSummary">0 orders</div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/nav :: dbModal}"></div>
+<div th:replace="~{fragments/nav :: scripts}"></div>
+
+<script th:inline="javascript">
+  /*<![CDATA[*/
+  let cashierSalesData = /*[[${cashierSales}]]*/ [];
+  const dailySalesData = /*[[${dailySales}]]*/ [];
+  const weeklySalesData = /*[[${weeklySales}]]*/ [];
+  const monthlySalesData = /*[[${monthlySales}]]*/ [];
+  const yearlySalesData = /*[[${yearlySales}]]*/ [];
+  const productStockData = /*[[${productStock}]]*/ [];
+  const lowStockData = /*[[${lowStock}]]*/ [];
+  /*]]>*/
+
+  let currentCashierPeriod = 'all';
+  let currentCashierId = null;
+  let cashierShareChartInstance = null;
+
+  // Update Dynamic Print Title
+  function updatePrintReportTitle(title) {
+    const titleEl = document.getElementById('printReportTitle');
+    if (titleEl) titleEl.textContent = title;
+  }
+
+  function triggerCleanPrint() {
+    const now = new Date();
+    const formattedDate = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) + ' ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    
+    document.getElementById('printDateCurrent').textContent = formattedDate;
+    document.querySelectorAll('.printTimestamp').forEach(el => el.textContent = formattedDate);
+
+    const activeBtn = document.querySelector('#reportTabs .nav-link.active');
+    if (activeBtn) {
+      updatePrintReportTitle(activeBtn.textContent.trim().toUpperCase() + ' REPORT');
+    }
+
+    window.print();
+  }
+
+  // Load Cashier Report with Period Filtering
+  async function loadCashierReport(period, btn) {
+    currentCashierPeriod = period;
+    if (btn) {
+      document.querySelectorAll('#cashierPeriodFilterGroup .btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+
+    const tbody = document.getElementById('cashierTableBody');
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">Loading cashier performance...</td></tr>';
+
+    try {
+      const data = await apiRequest(`/api/reports/cashiers?period=${period}`);
+      cashierSalesData = data || [];
+      renderCashierTable(cashierSalesData);
+      updateCashierShareChart(cashierSalesData);
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="9" class="text-center text-danger py-4">${escapeHtml(err.message)}</td></tr>`;
+    }
+  }
+
+  function renderCashierTable(list) {
+    const tbody = document.getElementById('cashierTableBody');
+    if (!list || list.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No cashier sales found for this period.</td></tr>';
+      calculateCashierTotals([]);
+      return;
+    }
+
+    tbody.innerHTML = list.map(c => `
+      <tr>
+        <td class="text-start fw-bold">${escapeHtml(c.EMPLOYEE_NAME || 'Unknown')}</td>
+        <td class="text-start"><span class="badge bg-light text-dark border">${escapeHtml(c.POSITION || 'Cashier')}</span></td>
+        <td class="text-end fw-bold">${Number(c.TOTAL_ORDERS || 0)}</td>
+        <td class="text-end">${Number(c.TOTAL_UNITS || 0)}</td>
+        <td class="text-end">$${Number(c.GROSS_SUBTOTAL || 0).toFixed(2)}</td>
+        <td class="text-end text-muted">$${Number(c.ORDER_DISCOUNT || 0).toFixed(2)}</td>
+        <td class="text-end fw-bold text-success">$${Number(c.NET_REVENUE || 0).toFixed(2)}</td>
+        <td class="text-end fw-bold">$${Number(c.AVG_ORDER_VALUE || 0).toFixed(2)}</td>
+        <td class="text-center">
+          <button class="btn btn-sm btn-brand-outline py-0 px-2"
+                  onclick="openCashierDrilldown(${c.EMPLOYEE_ID}, '${escapeHtml(c.EMPLOYEE_NAME || 'Cashier')}')">
+            View Orders
+          </button>
+        </td>
+      </tr>
+    `).join('');
+
+    calculateCashierTotals(list);
+  }
+
+  function calculateCashierTotals(list) {
+    let orders = 0, units = 0, gross = 0, disc = 0, net = 0;
+    list.forEach(c => {
+      orders += Number(c.TOTAL_ORDERS || 0);
+      units += Number(c.TOTAL_UNITS || 0);
+      gross += Number(c.GROSS_SUBTOTAL || 0);
+      disc += Number(c.ORDER_DISCOUNT || 0);
+      net += Number(c.NET_REVENUE || 0);
+    });
+    const avg = orders > 0 ? (net / orders) : 0;
+
+    document.getElementById('cashierTotalOrders').textContent = orders;
+    document.getElementById('cashierTotalUnits').textContent = units;
+    document.getElementById('cashierTotalGross').textContent = '$' + gross.toFixed(2);
+    document.getElementById('cashierTotalDisc').textContent = '$' + disc.toFixed(2);
+    document.getElementById('cashierTotalNet').textContent = '$' + net.toFixed(2);
+    document.getElementById('cashierTotalAvg').textContent = '$' + avg.toFixed(2);
+  }
+
+  // Open Drill-down Modal for Cashier Orders
+  async function openCashierDrilldown(employeeId, employeeName) {
+    currentCashierId = employeeId;
+    document.getElementById('cashierModalTitle').textContent = `Sales Orders: ${employeeName}`;
+    document.getElementById('cashierModalSubtitle').textContent = `Timeframe: ${currentCashierPeriod.toUpperCase()}`;
+    const tbody = document.getElementById('cashierOrdersTableBody');
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">Loading sales orders...</td></tr>';
+
+    const modal = new bootstrap.Modal(document.getElementById('cashierOrdersModal'));
+    modal.show();
+
+    try {
+      const orders = await apiRequest(`/api/reports/cashiers/${employeeId}/sales?period=${currentCashierPeriod}`);
+      if (!orders || orders.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No completed sales orders recorded for this cashier in this period.</td></tr>';
+        document.getElementById('cashierOrdersSummary').textContent = '0 completed orders';
+        return;
+      }
+
+      let totalUnits = 0;
+      let totalAmount = 0;
+
+      tbody.innerHTML = orders.map(o => {
+        totalUnits += Number(o.TOTAL_UNITS || 0);
+        totalAmount += Number(o.GRAND_TOTAL || 0);
+        return `
+          <tr>
+            <td class="fw-bold">#${o.SALE_ID}</td>
+            <td>${escapeHtml(o.SALE_DATE || '')}</td>
+            <td>${escapeHtml(o.CUSTOMER_NAME || 'Walk-in Customer')}</td>
+            <td class="text-end">${Number(o.TOTAL_UNITS || 0)}</td>
+            <td class="text-end">$${Number(o.SUBTOTAL || 0).toFixed(2)}</td>
+            <td class="text-end text-muted">$${Number(o.DISCOUNT || 0).toFixed(2)}</td>
+            <td class="text-end fw-bold text-success">$${Number(o.GRAND_TOTAL || 0).toFixed(2)}</td>
+            <td class="text-center"><span class="badge bg-success">${escapeHtml(o.STATUS || 'COMPLETED')}</span></td>
+          </tr>
+        `;
+      }).join('');
+
+      document.getElementById('cashierOrdersSummary').textContent = `${orders.length} orders | Total Units: ${totalUnits} | Revenue: $${totalAmount.toFixed(2)}`;
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">${escapeHtml(err.message)}</td></tr>`;
+    }
+  }
+
+  // Calculate Table Summary Totals
+  function calculateReportTotals() {
+    // 0. Cashier Totals
+    calculateCashierTotals(cashierSalesData);
+
+    // 1. Daily Sales Totals
+    let dailyOrders = 0, dailyGross = 0, dailyDisc = 0, dailyNet = 0;
+    dailySalesData.forEach(d => {
+      dailyOrders += Number(d.TOTAL_SALES || 0);
+      dailyGross += Number(d.SUBTOTAL || 0);
+      dailyDisc += Number(d.ORDER_DISCOUNT || 0);
+      dailyNet += Number(d.NET_SALES || 0);
+    });
+    document.getElementById('dailyTotalOrders').textContent = dailyOrders;
+    document.getElementById('dailyTotalGross').textContent = '$' + dailyGross.toFixed(2);
+    document.getElementById('dailyTotalDisc').textContent = '$' + dailyDisc.toFixed(2);
+    document.getElementById('dailyTotalNet').textContent = '$' + dailyNet.toFixed(2);
+
+    // 2. Weekly Sales Totals
+    let weeklyOrders = 0, weeklyGross = 0, weeklyDisc = 0, weeklyNet = 0;
+    weeklySalesData.forEach(w => {
+      weeklyOrders += Number(w.TOTAL_SALES || 0);
+      weeklyGross += Number(w.SUBTOTAL || 0);
+      weeklyDisc += Number(w.ORDER_DISCOUNT || 0);
+      weeklyNet += Number(w.NET_SALES || 0);
+    });
+    if (document.getElementById('weeklyTotalOrders')) {
+      document.getElementById('weeklyTotalOrders').textContent = weeklyOrders;
+      document.getElementById('weeklyTotalGross').textContent = '$' + weeklyGross.toFixed(2);
+      document.getElementById('weeklyTotalDisc').textContent = '$' + weeklyDisc.toFixed(2);
+      document.getElementById('weeklyTotalNet').textContent = '$' + weeklyNet.toFixed(2);
+    }
+
+    // 3. Monthly Sales Totals
+    let monthlyOrders = 0, monthlyGross = 0, monthlyDisc = 0, monthlyNet = 0;
+    monthlySalesData.forEach(m => {
+      monthlyOrders += Number(m.TOTAL_SALES || 0);
+      monthlyGross += Number(m.SUBTOTAL || 0);
+      monthlyDisc += Number(m.ORDER_DISCOUNT || 0);
+      monthlyNet += Number(m.NET_SALES || 0);
+    });
+    document.getElementById('monthlyTotalOrders').textContent = monthlyOrders;
+    document.getElementById('monthlyTotalGross').textContent = '$' + monthlyGross.toFixed(2);
+    document.getElementById('monthlyTotalDisc').textContent = '$' + monthlyDisc.toFixed(2);
+    document.getElementById('monthlyTotalNet').textContent = '$' + monthlyNet.toFixed(2);
+
+    // 4. Yearly Sales Totals
+    let yearlyOrders = 0, yearlyGross = 0, yearlyDisc = 0, yearlyNet = 0;
+    yearlySalesData.forEach(y => {
+      yearlyOrders += Number(y.TOTAL_SALES || 0);
+      yearlyGross += Number(y.SUBTOTAL || 0);
+      yearlyDisc += Number(y.ORDER_DISCOUNT || 0);
+      yearlyNet += Number(y.NET_SALES || 0);
+    });
+    if (document.getElementById('yearlyTotalOrders')) {
+      document.getElementById('yearlyTotalOrders').textContent = yearlyOrders;
+      document.getElementById('yearlyTotalGross').textContent = '$' + yearlyGross.toFixed(2);
+      document.getElementById('yearlyTotalDisc').textContent = '$' + yearlyDisc.toFixed(2);
+      document.getElementById('yearlyTotalNet').textContent = '$' + yearlyNet.toFixed(2);
+    }
+
+    // 5. Product Stock Totals
+    let stockUnits = 0, stockCostVal = 0, stockRetailVal = 0;
+    productStockData.forEach(p => {
+      stockUnits += Number(p.STOCK_QTY || 0);
+      stockCostVal += Number(p.STOCK_COST_VALUE || 0);
+      stockRetailVal += Number(p.STOCK_SALE_VALUE || 0);
+    });
+    document.getElementById('stockTotalUnits').textContent = stockUnits;
+    document.getElementById('stockTotalCostVal').textContent = '$' + stockCostVal.toFixed(2);
+    document.getElementById('stockTotalRetailVal').textContent = '$' + stockRetailVal.toFixed(2);
+
+    // 6. Low Stock Totals
+    let lowUnits = 0;
+    lowStockData.forEach(l => {
+      lowUnits += Number(l.STOCK_QTY || 0);
+    });
+    document.getElementById('lowStockTotalUnits').textContent = `${lowStockData.length} items (${lowUnits} units)`;
+  }
+
+  // Render Daily Sales Chart
+  const dailyCtx = document.getElementById('dailySalesChart')?.getContext('2d');
+  if (dailyCtx) {
+    const dailyLabels = dailySalesData.map(d => (d.LABEL || d.SALE_DAY || '').substring(5) || (d.LABEL || d.SALE_DAY || '')).reverse();
+    const dailyAmounts = dailySalesData.map(d => Number(d.NET_SALES || 0)).reverse();
+
+    new Chart(dailyCtx, {
+      type: 'line',
+      data: {
+        labels: dailyLabels,
+        datasets: [{
+          label: 'Net Sales ($)',
+          data: dailyAmounts,
+          borderColor: '#25241f',
+          backgroundColor: 'rgba(37, 36, 31, 0.08)',
+          tension: 0.25,
+          fill: true,
+          pointBackgroundColor: '#25241f',
+          pointRadius: 3
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, grid: { color: '#ece8dd' } },
+          x: { grid: { display: false } }
+        }
+      }
+    });
+  }
+
+  // Render Cashier Share Chart
+  function updateCashierShareChart(list) {
+    const cashierCtx = document.getElementById('cashierShareChart')?.getContext('2d');
+    if (!cashierCtx) return;
+
+    const filtered = list.filter(c => Number(c.NET_REVENUE || 0) > 0);
+    const labels = filtered.map(c => c.EMPLOYEE_NAME || 'Staff');
+    const data = filtered.map(c => Number(c.NET_REVENUE || 0));
+
+    const colors = ['#25241f', '#4f5c46', '#8d4b40', '#68655e', '#b08b59', '#7f8c8d'];
+
+    if (cashierShareChartInstance) {
+      cashierShareChartInstance.destroy();
+    }
+
+    cashierShareChartInstance = new Chart(cashierCtx, {
+      type: 'doughnut',
+      data: {
+        labels: labels.length > 0 ? labels : ['No Sales Recorded'],
+        datasets: [{
+          data: data.length > 0 ? data : [1],
+          backgroundColor: data.length > 0 ? colors.slice(0, labels.length) : ['#ece8dd'],
+          borderWidth: 2,
+          borderColor: '#fffefa'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '65%',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { boxWidth: 10, padding: 8, font: { size: 10 } }
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                if (data.length === 0) return ' No sales recorded';
+                const val = Number(context.raw || 0);
+                const total = data.reduce((a, b) => a + b, 0);
+                const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                return ` ${context.label}: $${val.toFixed(2)} (${pct}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Export Active Table to CSV
+  function exportActiveTableToCSV() {
+    const activePane = document.querySelector('.tab-pane.active');
+    if (!activePane) return;
+    const table = activePane.querySelector('.exportable-table');
+    if (!table) return;
+
+    let csv = [];
+    const rows = table.querySelectorAll('tr');
+    rows.forEach(row => {
+      let cols = row.querySelectorAll('th, td');
+      let rowData = [];
+      cols.forEach(col => {
+        let text = col.innerText.replace(/"/g, '""').trim();
+        rowData.push(`"${text}"`);
+      });
+      csv.push(rowData.join(','));
+    });
+
+    const csvFile = new Blob([csv.join('\n')], { type: 'text/csv' });
+    const downloadLink = document.createElement('a');
+    downloadLink.download = `report_${Date.now()}.csv`;
+    downloadLink.href = window.URL.createObjectURL(csvFile);
+    downloadLink.style.display = 'none';
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    downloadLink.remove();
+    showToast('Report exported to CSV successfully.', 'success');
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    calculateReportTotals();
+    updateCashierShareChart(cashierSalesData);
+    const now = new Date();
+    const formattedDate = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    const printDateEl = document.getElementById('printDateCurrent');
+    if (printDateEl) printDateEl.textContent = formattedDate;
+    document.querySelectorAll('.printTimestamp').forEach(el => el.textContent = formattedDate);
+  });
+</script>
+</body>
+</html>

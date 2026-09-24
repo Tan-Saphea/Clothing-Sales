@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/nav :: head('Sales')}"></head>
+<body>
+<div class="app-wrapper">
+    <aside th:replace="~{fragments/nav :: sidebar('sales')}"></aside>
+
+    <div class="main-wrapper">
+        <header th:replace="~{fragments/nav :: topbar('Sales', 'Sales Orders & Invoicing')}"></header>
+
+        <main class="content-body">
+            <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+                <div>
+                    <h3 class="fw-bold mb-1" style="color: var(--color-primary-navy);">Sales orders</h3>
+                    <p class="text-muted mb-0">Create sales, review invoices, and record payments.</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <div class="search-box">
+                        
+                        <input type="text" id="saleSearch" class="form-control" placeholder="Search orders...">
+                    </div>
+                    <button class="btn btn-brand-gold" data-bs-toggle="modal" data-bs-target="#newSaleModal">
+                         New Sales Order
+                    </button>
+                </div>
+            </div>
+
+            <div class="sales-summary-grid mb-3">
+                <div class="sales-summary-item">
+                    <span>Orders</span>
+                    <strong th:text="${saleOrderCount}">0</strong>
+                </div>
+                <div class="sales-summary-item">
+                    <span>Awaiting payment</span>
+                    <strong th:text="${saleAwaitingPaymentCount}">0</strong>
+                </div>
+                <div class="sales-summary-item">
+                    <span>Outstanding</span>
+                    <strong th:text="'$' + ${#numbers.formatDecimal(saleOutstandingTotal ?: 0, 1, 2)}">$0.00</strong>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="table-pro" id="salesTable">
+                        <thead>
+                        <tr>
+                            <th>Invoice</th>
+                            <th>Customer</th>
+                            <th>Order status</th>
+                            <th>Payment</th>
+                            <th class="text-end">Total</th>
+                            <th style="width: 190px;" class="text-end">Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:if="${#lists.isEmpty(sales)}">
+                            <td colspan="6" class="text-center text-muted py-4">No sales orders found.</td>
+                        </tr>
+                        <tr th:each="s : ${sales}" th:id="'sale-row-' + ${s['saleId']}">
+                            <td>
+                                <div class="fw-bold" th:text="'INV-' + ${s['saleId']}">INV-1</div>
+                                <div class="sales-cell-meta" th:text="${s['saleDate']}">2026-09-16</div>
+                            </td>
+                            <td>
+                                <div class="fw-bold" th:text="${s['customerName']}">Walk-in Customer</div>
+                                <div class="sales-cell-meta" th:text="'Cashier: ' + ${s['employeeName']}">Cashier: Dara Sok</div>
+                            </td>
+                            <td>
+                                <span th:if="${s['status'] == 'COMPLETED'}" class="badge-status completed" th:id="'sale-status-' + ${s['saleId']}">Completed</span>
+                                <span th:if="${s['status'] == 'PENDING'}" class="badge-status pending" th:id="'sale-status-' + ${s['saleId']}">[PENDING]</span>
+                                <span th:if="${s['status'] != 'COMPLETED' and s['status'] != 'PENDING'}" class="badge-status inactive" th:text="${s['status']}">STATUS</span>
+                            </td>
+                            <td>
+                                <span th:if="${s['paymentStatus'] == 'PAID'}" class="badge-status active">Paid</span>
+                                <span th:if="${s['paymentStatus'] == 'PARTIAL'}" class="badge-status pending">Partial</span>
+                                <span th:if="${s['paymentStatus'] == 'UNPAID'}" class="badge-status inactive">Unpaid</span>
+                                <div class="sales-cell-meta mt-1" th:if="${s['remainingBalance'] > 0}"
+                                     th:text="'Due $' + ${#numbers.formatDecimal(s['remainingBalance'], 1, 2)}">Due $0.00</div>
+                            </td>
+                            <td class="text-end">
+                                <div class="fw-bold fs-6" th:text="'$' + ${#numbers.formatDecimal(s['grandTotal'] ?: 0, 1, 2)}">$0.00</div>
+                                <div class="sales-cell-meta" th:if="${s['paidAmount'] > 0}"
+                                     th:text="'Paid $' + ${#numbers.formatDecimal(s['paidAmount'], 1, 2)}">Paid $0.00</div>
+                            </td>
+                            <td class="text-end">
+                                <div class="sales-row-actions">
+                                    <button class="btn btn-sm btn-brand-outline sale-action-btn"
+                                            title="View Invoice Receipt"
+                                            th:data-id="${s['saleId']}"
+                                            onclick="viewSaleInvoice(this.getAttribute('data-id'))">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16" style="margin-right:3px;vertical-align:-1px"><path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z"/></svg>
+                                        Invoice
+                                    </button>
+                                    <button th:if="${s['status'] == 'COMPLETED' and s['remainingBalance'] > 0}"
+                                            class="btn btn-sm btn-brand-primary sale-action-btn"
+                                            title="Record payment for this order"
+                                            th:data-id="${s['saleId']}"
+                                            onclick="openRecordPaymentModal(this.getAttribute('data-id'))">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16" style="margin-right:3px;vertical-align:-1px"><path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4zm2-1a1 1 0 0 0-1 1v1h14V4a1 1 0 0 0-1-1H2zm13 4H1v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7zM2 10h2a1 1 0 0 1 1 1v1H2v-2zm4 0h6v1H6v-1z"/></svg>
+                                        Pay
+                                    </button>
+                                    <button th:if="${s['status'] == 'PENDING'}"
+                                            class="btn btn-sm btn-brand-primary sale-action-btn"
+                                            th:id="'sale-complete-btn-' + ${s['saleId']}"
+                                            th:data-id="${s['saleId']}"
+                                            title="Complete sale and deduct stock"
+                                            onclick="completeSale(this.getAttribute('data-id'))">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16" style="margin-right:3px;vertical-align:-1px"><path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/></svg>
+                                        Complete
+                                    </button>
+                                    <button th:if="${s['status'] == 'PENDING' or (s['status'] == 'COMPLETED' and isAdmin)}"
+                                            class="btn btn-sm btn-outline-danger sale-action-btn"
+                                            th:data-id="${s['saleId']}"
+                                            title="Cancel sale, refund recorded payments, and restore stock"
+                                            onclick="cancelSale(this.getAttribute('data-id'))">
+                                        Cancel
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- New Sales Order Modal (Interactive Visual POS Picker & Cart) -->
+<div class="modal fade" id="newSaleModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen-lg-down modal-xl modal-dialog-centered">
+        <div class="modal-content pos-modal-content">
+            <div class="modal-header-brand">
+                <div>
+                    <h5 class="modal-title">New Retail Sales Order</h5>
+                    <div class="small text-muted">Browse apparel images on the left and click cards to pick items into the order cart.</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="newSaleForm" onsubmit="submitNewSale(event)">
+                <div class="modal-body p-3">
+                    <div class="row g-3">
+                        <!-- Left Part: Visual Apparel Catalog & Item Picker -->
+                        <div class="col-lg-7 d-flex flex-column border-end pe-lg-3">
+                            <!-- Filters -->
+                            <div class="pos-catalog-toolbar mb-3">
+                                <div class="row g-2 align-items-center">
+                                    <div class="col-sm-6">
+                                        <div class="search-box w-100" style="max-width: 100%;">
+                                            <input type="text" id="posProductSearch" class="form-control form-control-sm" placeholder="Search apparel name, SKU..." oninput="filterPosCatalog()">
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <select id="posCategoryFilter" class="form-select form-select-sm" onchange="filterPosCatalog()">
+                                            <option value="">All Categories</option>
+                                            <option th:each="cat : ${categories}" th:value="${cat.categoryId}" th:text="${cat.categoryName}"></option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Visual Items Grid -->
+                            <div class="pos-grid-container flex-grow-1" id="posGridContainer">
+                                <div class="pos-items-grid" id="posItemsGrid">
+                                    <div class="text-center text-muted py-5 w-100">
+                                        Loading apparel catalog...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Part: Customer, Active Cart, Quantity, Total Price & Checkout -->
+                        <div class="col-lg-5 d-flex flex-column ps-lg-3">
+                            <!-- Order Customer & Staff Info -->
+                            <div class="pos-order-meta mb-3 p-2 bg-light border rounded-2">
+                                <div class="row g-2 mb-2">
+                                    <div class="col-6">
+                                        <label class="form-label small mb-1">Customer</label>
+                                        <select class="form-select form-select-sm" id="saleCustomerId">
+                                            <option value="">Walk-in Customer</option>
+                                            <option th:each="c : ${customers}" th:value="${c.customerId}" th:text="${c.customerName + ' (' + (c.phone ?: 'No Phone') + ')'}"></option>
+                                        </select>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label small mb-1" th:text="${isAdmin} ? 'Sales Rep *' : 'Cashier'">Sales Rep *</label>
+                                        <select class="form-select form-select-sm" id="saleEmployeeId" required th:disabled="${!isAdmin}">
+                                            <option th:each="emp : ${employees}" th:value="${emp.employeeId}" th:text="${emp.employeeName + ' - ' + (emp.position ?: 'Staff')}"></option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <input type="text" class="form-control form-control-sm" id="saleNote" placeholder="Order note / counter reference...">
+                                </div>
+                            </div>
+
+                            <!-- Cart Items Header -->
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <h6 class="fw-bold mb-0 text-dark">Order Items</h6>
+                                    <span class="badge bg-secondary" id="posCartCountBadge">0 items</span>
+                                </div>
+                                <button type="button" class="btn btn-link btn-sm text-danger text-decoration-none p-0" onclick="clearCart()">
+                                    Clear Cart
+                                </button>
+                            </div>
+
+                            <!-- Cart Line Items Container -->
+                            <div class="pos-cart-list-wrapper border rounded-2 p-2 bg-white flex-grow-1" id="posCartListWrapper">
+                                <div id="posCartEmpty" class="text-center text-muted py-5">
+                                    <div class="small fw-semibold">Your cart is empty.</div>
+                                    <div class="small text-muted">Click apparel cards on the left to pick items.</div>
+                                </div>
+                                <div id="posCartItemsList" class="pos-cart-items-list" style="display: none;">
+                                    <!-- Dynamic cart rows rendered via JS -->
+                                </div>
+                            </div>
+
+                            <!-- Order Financial Summary -->
+                            <div class="pos-summary-card mt-3 p-3 border rounded-2">
+                                <div class="d-flex justify-content-between small text-muted mb-1">
+                                    <span>Total Items:</span>
+                                    <span id="posTotalQtyDisplay">0 items (0 units)</span>
+                                </div>
+                                <div class="d-flex justify-content-between small text-muted mb-1">
+                                    <span>Subtotal:</span>
+                                    <span id="posSubtotalDisplay">$0.00</span>
+                                </div>
+                                <div class="d-flex justify-content-between small text-muted mb-2">
+                                    <span>Total Discount:</span>
+                                    <span id="posDiscountDisplay">$0.00</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center border-top pt-2">
+                                    <span class="fw-bold fs-6">Grand Total:</span>
+                                    <span class="fw-bold fs-4 text-success" id="posGrandTotalDisplay">$0.00</span>
+                                </div>
+                            </div>
+
+                            <div class="pos-payment-panel mt-2">
+                                <div class="pos-section-label">Payment</div>
+                                <div class="row g-2">
+                                    <div class="col-5">
+                                        <label class="form-label small mb-1" for="checkoutPaymentMethod">Method</label>
+                                        <select class="form-select form-select-sm" id="checkoutPaymentMethod">
+                                            <option value="CASH">Cash</option>
+                                            <option value="ABA">ABA Pay</option>
+                                            <option value="KHQR">KHQR</option>
+                                            <option value="ACLEDA">ACLEDA</option>
+                                            <option value="CARD">Card</option>
+                                            <option value="OTHER">Other</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-7">
+                                        <label class="form-label small mb-1" for="checkoutPaymentAmount">Payment amount</label>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text">$</span>
+                                            <input type="number" class="form-control" id="checkoutPaymentAmount"
+                                                   min="0.01" step="0.01" placeholder="0.00" oninput="updateCheckoutPaymentHint()">
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <input type="text" class="form-control form-control-sm" id="checkoutPaymentReference"
+                                               maxlength="100" placeholder="Reference number (optional)">
+                                    </div>
+                                </div>
+                                <div class="form-text" id="checkoutPaymentHint">Add items to calculate the payment.</div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="pos-checkout-actions mt-3">
+                                <button type="button" class="btn btn-sm btn-outline-secondary pos-action-cancel" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-sm btn-brand-outline pos-action-complete" data-checkout-mode="sale" id="btnCompleteSaleOnly" title="Save order without recording payment now">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16" style="margin-right:4px;vertical-align:-1px"><path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/></svg>
+                                    Complete only
+                                </button>
+                                <button type="submit" class="btn btn-sm btn-brand-primary pos-action-pay" data-checkout-mode="pay" id="btnFinalizeSale" title="Record payment and generate invoice">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16" style="margin-right:4px;vertical-align:-1px"><path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4zm2-1a1 1 0 0 0-1 1v1h14V4a1 1 0 0 0-1-1H2zm13 4H1v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7zM2 10h2a1 1 0 0 1 1 1v1H2v-2zm4 0h6v1H6v-1z"/></svg>
+                                    Pay &amp; Invoice
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Record Payment Modal -->
+<div class="modal fade" id="recordPaymentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header-brand">
+                <h5 class="modal-title">
+                     Record Payment: <span id="paySaleNumber"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form onsubmit="submitPayment(event)">
+                <input type="hidden" id="paySaleId">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Payment Amount ($) <span class="text-danger">*</span></label>
+                        <input type="number" step="0.01" min="0.01" class="form-control" id="payAmount" required>
+                        <div class="form-text" id="payRemaining">Checking remaining balance...</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Payment Method <span class="text-danger">*</span></label>
+                        <select class="form-select" id="payMethod" required>
+                            <option value="CASH" selected>Cash Payment</option>
+                            <option value="ABA">ABA Pay</option>
+                            <option value="KHQR">KHQR</option>
+                            <option value="ACLEDA">ACLEDA Bank</option>
+                            <option value="CARD">Credit / Debit Card</option>
+                            <option value="OTHER">Other</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Transaction Reference #</label>
+                        <input type="text" class="form-control" id="payRefNo" placeholder="e.g. TXN-9988234 or Receipt #">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm btn-brand-primary">
+                        Save &amp; view invoice
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Invoice Receipt Modal (A5 Paper Format) -->
+<div class="modal fade" id="invoiceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header-brand">
+                <h5 class="modal-title">
+                     Sales Receipt &bull; A5 Format
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-3 bg-light">
+                <div class="a5-invoice-wrapper" id="a5PrintableArea">
+                    <!-- A5 Store Header -->
+                    <div class="a5-store-header">
+                        <img th:src="@{/images/mystyle-logo-dark-crop.png}" alt="MyStyle" class="a5-brand-logo">
+                        <h4 class="a5-store-title">MyStyle Fashion Store</h4>
+                        <div class="a5-store-meta">
+                            Preah Sihanouk Blvd, Phnom Penh, Cambodia &bull; Tel: +855 12 888 999<br>
+                            Tax ID: K008-9928198 &bull; Email: contact@mystylefashion.com
+                        </div>
+                        <div class="a5-invoice-badge">
+                            SALES INVOICE
+                        </div>
+                    </div>
+
+                    <!-- Metadata 2-Column Grid -->
+                    <div class="a5-meta-grid">
+                        <div>
+                            <div><strong>Invoice No:</strong> <span id="a5InvNo" class="fw-bold">INV-000000</span></div>
+                            <div><strong>Date & Time:</strong> <span id="a5InvDate">2026-09-18</span></div>
+                            <div><strong>Sales Rep:</strong> <span id="a5InvEmployee">Staff</span></div>
+                        </div>
+                        <div class="text-end">
+                            <div><strong>Customer:</strong> <span id="a5InvCustomer">Walk-in Customer</span></div>
+                            <div><strong>Contact:</strong> <span id="a5InvPhone">N/A</span></div>
+                            <div><strong>Status:</strong> <span id="a5InvStatus" class="fw-bold text-success">PAID</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Items Table -->
+                    <table class="a5-table">
+                        <thead>
+                        <tr>
+                            <th style="width: 25px;" class="text-start">#</th>
+                            <th class="text-start">Item Description</th>
+                            <th class="text-center" style="width: 45px;">Qty</th>
+                            <th class="text-end" style="width: 75px;">Unit Price</th>
+                            <th class="text-end" style="width: 65px;">Disc</th>
+                            <th class="text-end" style="width: 80px;">Amount</th>
+                        </tr>
+                        </thead>
+                        <tbody id="a5InvoiceItemsTbody">
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-3">Loading invoice items...</td>
+                        </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Calculation & Notes Section -->
+                    <div class="a5-calc-section">
+                        <div class="a5-note-box">
+                            <div class="fw-bold text-dark mb-1">Payment & Notes:</div>
+                            <div id="a5InvPayMethod">Payment: Cash / Verified</div>
+                            <div id="a5InvNote" class="text-muted mt-1">Note: None</div>
+                        </div>
+                        <div class="a5-calc-box">
+                            <div class="a5-calc-row">
+                                <span class="text-muted">Subtotal:</span>
+                                <span id="a5InvSubtotal" class="fw-semibold">$0.00</span>
+                            </div>
+                            <div class="a5-calc-row">
+                                <span class="text-muted">Order Discount:</span>
+                                <span id="a5InvDiscount" class="text-muted">-$0.00</span>
+                            </div>
+                            <div class="a5-calc-row grand-total">
+                                <span>Grand Total:</span>
+                                <span id="a5InvGrandTotal">$0.00</span>
+                            </div>
+                            <div class="a5-calc-row">
+                                <span class="text-muted">Amount Paid:</span>
+                                <span id="a5InvPaid">$0.00</span>
+                            </div>
+                            <div class="a5-calc-row">
+                                <span class="text-muted">Change / Balance:</span>
+                                <span id="a5InvRemaining">$0.00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- A5 Receipt Footer -->
+                    <div class="a5-receipt-footer">
+                        <div class="fw-semibold text-dark">THANK YOU FOR SHOPPING WITH MYSTYLE FASHION!</div>
+                        <div>We appreciate your business and look forward to serving you again!</div>
+                        <div class="text-muted mt-1">* Goods sold can be exchanged within 3 days with this original receipt in original condition.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-brand-primary" onclick="printA5Receipt()">
+                        Print Receipt (A5)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/nav :: dbModal}"></div>
+<div th:replace="~{fragments/nav :: scripts}"></div>
+
+<script>
+  let masterVariants = [];
+  let posCart = [];
+  let reloadAfterInvoice = false;
+
+  setupTableSearch('saleSearch', 'salesTable');
+
+  async function loadMasterVariants() {
+    try {
+      const all = await apiRequest('/api/variants');
+      masterVariants = all.filter(v => v.productActive !== false);
+      filterPosCatalog();
+    } catch (e) {
+      console.error('Failed to load variants', e);
+      const grid = document.getElementById('posItemsGrid');
+      if (grid) {
+        grid.innerHTML = '<div class="text-center text-danger py-4 w-100">Failed to load apparel catalog.</div>';
+      }
+    }
+  }
+
+  function filterPosCatalog() {
+    const q = (document.getElementById('posProductSearch')?.value || '').toLowerCase().trim();
+    const catId = document.getElementById('posCategoryFilter')?.value || '';
+
+    const filtered = masterVariants.filter(v => {
+      const matchCat = !catId || String(v.categoryId) === String(catId);
+      const matchSearch = !q ||
+        (v.productName && v.productName.toLowerCase().includes(q)) ||
+        (v.sku && v.sku.toLowerCase().includes(q)) ||
+        (v.sizeName && v.sizeName.toLowerCase().includes(q)) ||
+        (v.colorName && v.colorName.toLowerCase().includes(q));
+      return matchCat && matchSearch;
+    });
+
+    renderPosCatalog(filtered);
+  }
+
+  function renderPosCatalog(items) {
+    const grid = document.getElementById('posItemsGrid');
+    if (!grid) return;
+
+    if (!items || items.length === 0) {
+      grid.innerHTML = '<div class="text-center text-muted py-5 w-100">No matching apparel found.</div>';
+      return;
+    }
+
+    const fallbackImg = 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=600&auto=format&fit=crop&q=80';
+
+    grid.innerHTML = items.map(v => {
+      const stock = Number(v.stockQty || 0);
+      const isOutOfStock = stock <= 0;
+      const isLowStock = stock > 0 && stock <= 10;
+      const price = Number(v.salePrice || 0);
+      const cartItem = posCart.find(item => item.variantId === v.variantId);
+      const inCartQty = cartItem ? cartItem.quantity : 0;
+
+      let stockBadgeHtml = '';
+      if (isOutOfStock) {
+        stockBadgeHtml = '<span class="pos-card-stock out">Out of Stock</span>';
+      } else if (isLowStock) {
+        stockBadgeHtml = `<span class="pos-card-stock low">${stock} left</span>`;
+      } else {
+        stockBadgeHtml = `<span class="pos-card-stock">${stock} in stock</span>`;
+      }
+
+      const imgSrc = (v.imageUrl && v.imageUrl.trim()) ? v.imageUrl.trim() : fallbackImg;
+      const imgHtml = `<img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(v.productName)}" class="pos-card-img" loading="lazy" onerror="this.onerror=null; this.src='${fallbackImg}';">`;
+
+      const inCartBadgeHtml = inCartQty > 0 ? `
+        <div class="pos-card-in-cart-badge">x${inCartQty} in cart</div>
+      ` : '';
+
+      return `
+        <div class="pos-card ${isOutOfStock ? 'out-of-stock' : ''} ${inCartQty > 0 ? 'in-cart' : ''}"
+             data-variant-id="${v.variantId}"
+             onclick="pickVariant(${v.variantId})">
+          ${inCartBadgeHtml}
+          <div class="pos-card-img-wrap">
+            ${imgHtml}
+          </div>
+          <div class="pos-card-body">
+            <div class="pos-card-title">${escapeHtml(v.productName || 'Apparel')}</div>
+            <div class="pos-card-spec">${escapeHtml(v.sizeName || '')} &bull; ${escapeHtml(v.colorName || '')}</div>
+            <div class="pos-card-sku">${escapeHtml(v.sku)}</div>
+            <div class="pos-card-footer">
+              <span class="pos-card-price">$${price.toFixed(2)}</span>
+              ${stockBadgeHtml}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function pickVariant(variantId) {
+    const variant = masterVariants.find(v => v.variantId === variantId);
+    if (!variant) return;
+
+    const stock = Number(variant.stockQty || 0);
+    if (stock <= 0) {
+      showToast(`${variant.productName} (${variant.sku}) is currently out of stock.`, 'warning');
+      return;
+    }
+
+    const existing = posCart.find(item => item.variantId === variantId);
+    if (existing) {
+      if (existing.quantity >= stock) {
+        showToast(`Cannot add more. Only ${stock} units in stock.`, 'warning');
+        return;
+      }
+      existing.quantity += 1;
+    } else {
+      posCart.push({
+        variantId: variant.variantId,
+        sku: variant.sku,
+        productName: variant.productName,
+        sizeName: variant.sizeName,
+        colorName: variant.colorName,
+        imageUrl: variant.imageUrl,
+        price: Number(variant.salePrice || 0),
+        stockQty: stock,
+        quantity: 1,
+        discount: 0
+      });
+    }
+
+    filterPosCatalog();
+    renderCart();
+  }
+
+  function updateCartQty(variantId, delta) {
+    const item = posCart.find(i => i.variantId === variantId);
+    if (!item) return;
+
+    const newQty = item.quantity + delta;
+    if (newQty <= 0) {
+      removeFromCart(variantId);
+      return;
+    }
+    if (newQty > item.stockQty) {
+      showToast(`Cannot exceed available stock of ${item.stockQty} units.`, 'warning');
+      return;
+    }
+
+    item.quantity = newQty;
+    filterPosCatalog();
+    renderCart();
+  }
+
+  function setCartQty(variantId, val) {
+    const item = posCart.find(i => i.variantId === variantId);
+    if (!item) return;
+
+    let qty = parseInt(val, 10);
+    if (isNaN(qty) || qty <= 0) {
+      qty = 1;
+    }
+    if (qty > item.stockQty) {
+      showToast(`Adjusted to maximum available stock (${item.stockQty}).`, 'warning');
+      qty = item.stockQty;
+    }
+
+    item.quantity = qty;
+    filterPosCatalog();
+    renderCart();
+  }
+
+  function setCartPrice(variantId, val) {
+    const item = posCart.find(i => i.variantId === variantId);
+    if (!item) return;
+    const price = parseFloat(val);
+    item.price = isNaN(price) || price < 0 ? 0 : price;
+    renderCart();
+  }
+
+  function setCartDiscount(variantId, val) {
+    const item = posCart.find(i => i.variantId === variantId);
+    if (!item) return;
+    const disc = parseFloat(val);
+    item.discount = isNaN(disc) || disc < 0 ? 0 : disc;
+    renderCart();
+  }
+
+  function removeFromCart(variantId) {
+    posCart = posCart.filter(i => i.variantId !== variantId);
+    filterPosCatalog();
+    renderCart();
+  }
+
+  function clearCart() {
+    if (posCart.length === 0) return;
+    if (confirm('Clear all items from this order cart?')) {
+      posCart = [];
+      filterPosCatalog();
+      renderCart();
+    }
+  }
+
+  function getCartGrandTotal() {
+    return posCart.reduce((total, item) => {
+      const gross = Number(item.price || 0) * Number(item.quantity || 0);
+      const discount = Math.min(gross, Number(item.discount || 0));
+      return total + Math.max(0, gross - discount);
+    }, 0);
+  }
+
+  function updateCheckoutPaymentHint() {
+    const amountInput = document.getElementById('checkoutPaymentAmount');
+    const hint = document.getElementById('checkoutPaymentHint');
+    if (!amountInput || !hint) return;
+    const total = getCartGrandTotal();
+    const amount = Number(amountInput.value || 0);
+    if (total <= 0) {
+      hint.textContent = 'Add items to calculate the payment.';
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      hint.textContent = `Order total: $${total.toFixed(2)}.`;
+    } else if (amount > total) {
+      hint.textContent = `Payment cannot exceed $${total.toFixed(2)}.`;
+    } else if (amount < total) {
+      hint.textContent = `Partial payment. Remaining: $${(total - amount).toFixed(2)}.`;
+    } else {
+      hint.textContent = 'Full payment. Invoice will show Paid.';
+    }
+  }
+
+  function renderCart() {
+    const emptyEl = document.getElementById('posCartEmpty');
+    const listEl = document.getElementById('posCartItemsList');
+    const finalizeBtn = document.getElementById('btnFinalizeSale');
+    const completeBtn = document.getElementById('btnCompleteSaleOnly');
+    const paymentAmountInput = document.getElementById('checkoutPaymentAmount');
+
+    if (!posCart.length) {
+      if (emptyEl) emptyEl.style.display = 'block';
+      if (listEl) {
+        listEl.style.display = 'none';
+        listEl.innerHTML = '';
+      }
+      document.getElementById('posCartCountBadge').textContent = '0 items';
+      document.getElementById('posTotalQtyDisplay').textContent = '0 items (0 units)';
+      document.getElementById('posSubtotalDisplay').textContent = '$0.00';
+      document.getElementById('posDiscountDisplay').textContent = '$0.00';
+      document.getElementById('posGrandTotalDisplay').textContent = '$0.00';
+      if (finalizeBtn) finalizeBtn.disabled = true;
+      if (completeBtn) completeBtn.disabled = true;
+      if (paymentAmountInput) {
+        paymentAmountInput.value = '';
+        paymentAmountInput.removeAttribute('max');
+      }
+      updateCheckoutPaymentHint();
+      return;
+    }
+
+    if (emptyEl) emptyEl.style.display = 'none';
+    if (listEl) listEl.style.display = 'flex';
+    if (finalizeBtn) finalizeBtn.disabled = false;
+    if (completeBtn) completeBtn.disabled = false;
+
+    let subtotal = 0;
+    let totalDiscount = 0;
+    let totalUnits = 0;
+
+    listEl.innerHTML = posCart.map(item => {
+      const lineGross = item.price * item.quantity;
+      const lineDisc = Math.min(lineGross, item.discount || 0);
+      const lineNet = Math.max(0, lineGross - lineDisc);
+
+      subtotal += lineGross;
+      totalDiscount += lineDisc;
+      totalUnits += item.quantity;
+
+      const thumbHtml = item.imageUrl ? `
+        <img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.productName)}" class="pos-cart-thumb" onerror="this.style.display='none';">
+      ` : `
+        <div class="pos-cart-thumb d-flex align-items-center justify-content-center fw-bold text-muted" style="font-size: 11px;">
+          ${escapeHtml((item.productName || 'P').substring(0, 1))}
+        </div>
+      `;
+
+      return `
+        <div class="pos-cart-row" data-cart-variant-id="${item.variantId}">
+          ${thumbHtml}
+          <div class="pos-cart-info">
+            <div class="pos-cart-title" title="${escapeHtml(item.productName)}">${escapeHtml(item.productName)}</div>
+            <div class="pos-cart-sub">${escapeHtml(item.sizeName)} &bull; ${escapeHtml(item.colorName)} | <span class="text-muted">${escapeHtml(item.sku)}</span></div>
+          </div>
+          <div class="pos-qty-group">
+            <button type="button" class="pos-qty-btn" onclick="updateCartQty(${item.variantId}, -1)" title="Decrease">&minus;</button>
+            <input type="number" min="1" max="${item.stockQty}" class="pos-qty-input" value="${item.quantity}" onchange="setCartQty(${item.variantId}, this.value)">
+            <button type="button" class="pos-qty-btn" onclick="updateCartQty(${item.variantId}, 1)" title="Increase">&plus;</button>
+          </div>
+          <div class="pos-price-group text-end fw-semibold">$${item.price.toFixed(2)}</div>
+          <div class="pos-cart-total">$${lineNet.toFixed(2)}</div>
+          <button type="button" class="btn btn-sm btn-icon-sm btn-outline-danger p-0" style="width: 22px; height: 22px; line-height: 1;" onclick="removeFromCart(${item.variantId})" title="Remove item">&times;</button>
+        </div>
+      `;
+    }).join('');
+
+    const grandTotal = Math.max(0, subtotal - totalDiscount);
+
+    document.getElementById('posCartCountBadge').textContent = `${posCart.length} item${posCart.length > 1 ? 's' : ''}`;
+    document.getElementById('posTotalQtyDisplay').textContent = `${posCart.length} item${posCart.length > 1 ? 's' : ''} (${totalUnits} unit${totalUnits > 1 ? 's' : ''})`;
+    document.getElementById('posSubtotalDisplay').textContent = '$' + subtotal.toFixed(2);
+    document.getElementById('posDiscountDisplay').textContent = '$' + totalDiscount.toFixed(2);
+    document.getElementById('posGrandTotalDisplay').textContent = '$' + grandTotal.toFixed(2);
+    if (paymentAmountInput) {
+      paymentAmountInput.max = grandTotal.toFixed(2);
+      paymentAmountInput.value = grandTotal.toFixed(2);
+    }
+    updateCheckoutPaymentHint();
+  }
+
+  async function submitNewSale(e) {
+    e.preventDefault();
+    if (!posCart.length) {
+      showToast('Please pick at least one apparel item to place an order.', 'warning');
+      return;
+    }
+
+    const customerId = document.getElementById('saleCustomerId').value || null;
+    const employeeId = document.getElementById('saleEmployeeId').value;
+    const note = document.getElementById('saleNote').value.trim();
+    const checkoutMode = e.submitter?.dataset.checkoutMode || 'pay';
+    const paymentMethod = document.getElementById('checkoutPaymentMethod').value;
+    const referenceNo = document.getElementById('checkoutPaymentReference').value.trim();
+    const paymentAmount = checkoutMode === 'pay'
+      ? Number(document.getElementById('checkoutPaymentAmount').value)
+      : null;
+    const orderTotal = getCartGrandTotal();
+
+    if (checkoutMode === 'pay' && (!Number.isFinite(paymentAmount) || paymentAmount <= 0 || paymentAmount > orderTotal)) {
+      showToast(`Enter a payment between $0.01 and $${orderTotal.toFixed(2)}.`, 'warning');
+      return;
+    }
+
+    const items = posCart.map(item => ({
+      variantId: item.variantId,
+      quantity: item.quantity,
+      unitPrice: item.price,
+      discount: item.discount || 0
+    }));
+
+    for (const item of posCart) {
+      if (item.quantity > item.stockQty) {
+        showToast(`Quantity for ${item.sku} exceeds current stock (${item.stockQty}).`, 'warning');
+        return;
+      }
+    }
+
+    const payBtn = document.getElementById('btnFinalizeSale');
+    const completeBtn = document.getElementById('btnCompleteSaleOnly');
+    if (payBtn) payBtn.disabled = true;
+    if (completeBtn) completeBtn.disabled = true;
+    const activeBtn = e.submitter;
+    const originalButtonText = activeBtn?.textContent;
+    if (activeBtn) activeBtn.textContent = 'Processing...';
+
+    try {
+      const sale = await apiRequest('/api/sales', 'POST', {
+        customerId, employeeId, note, items,
+        paymentAmount, paymentMethod, referenceNo
+      });
+      showToast(checkoutMode === 'pay'
+        ? 'Payment recorded. Invoice is ready.'
+        : 'Sale completed. Invoice is ready.', 'success');
+      const saleModalEl = document.getElementById('newSaleModal');
+      saleModalEl.addEventListener('hidden.bs.modal', () => {
+        reloadAfterInvoice = true;
+        viewSaleInvoice(sale.saleId);
+      }, {once: true});
+      bootstrap.Modal.getInstance(saleModalEl).hide();
+    } catch (err) {
+      showToast(err.message, 'error');
+      if (payBtn) payBtn.disabled = false;
+      if (completeBtn) completeBtn.disabled = false;
+      if (activeBtn && originalButtonText) activeBtn.textContent = originalButtonText;
+    }
+  }
+
+  async function completeSale(id) {
+    if (!confirm(`Complete sale #${id} and deduct stock?`)) return;
+
+    try {
+      await apiRequest(`/api/sales/${id}/complete`, 'POST');
+      showToast(`Sale #${id} completed and inventory reduced!`, 'success');
+      const statusEl = document.getElementById('sale-status-' + id);
+      if (statusEl) {
+        statusEl.className = 'badge-status completed';
+        statusEl.textContent = '[COMPLETED]';
+      }
+      const completeBtn = document.getElementById('sale-complete-btn-' + id);
+      if (completeBtn) completeBtn.remove();
+      reloadAfterInvoice = true;
+      viewSaleInvoice(id);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  async function cancelSale(id) {
+    const reason = prompt(`Why is sale #${id} being cancelled?`);
+    if (reason === null) return;
+    if (!reason.trim()) {
+      showToast('A cancellation reason is required.', 'warning');
+      return;
+    }
+    if (!confirm(`Cancel sale #${id}? Completed-sale stock will be restored and recorded payments marked refunded.`)) return;
+    try {
+      await apiRequest(`/api/sales/${id}/cancel?reason=${encodeURIComponent(reason.trim())}`, 'POST');
+      showToast(`Sale #${id} cancelled successfully.`, 'success');
+      setTimeout(() => window.location.reload(), 400);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  async function openRecordPaymentModal(saleId) {
+    document.getElementById('paySaleId').value = saleId;
+    document.getElementById('paySaleNumber').textContent = `INV-${saleId}`;
+    document.getElementById('payAmount').value = '';
+    document.getElementById('payRefNo').value = '';
+    document.getElementById('payRemaining').textContent = 'Checking remaining balance...';
+    try {
+      const balance = await apiRequest(`/api/sales/${saleId}/balance`);
+      const remaining = Number(balance.remaining || 0);
+      if (remaining <= 0) {
+        showToast('This sale is fully paid.', 'info');
+        return;
+      }
+      document.getElementById('payAmount').value = remaining.toFixed(2);
+      document.getElementById('payAmount').max = remaining.toFixed(2);
+      document.getElementById('payRemaining').textContent = `Remaining balance: $${remaining.toFixed(2)}`;
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('recordPaymentModal')).show();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  async function submitPayment(e) {
+    e.preventDefault();
+    const saleId = document.getElementById('paySaleId').value;
+    const amount = parseFloat(document.getElementById('payAmount').value);
+    const paymentMethod = document.getElementById('payMethod').value;
+    const referenceNo = document.getElementById('payRefNo').value.trim();
+    if (!Number.isFinite(amount) || amount <= 0 || amount > Number(document.getElementById('payAmount').max)) {
+      showToast('Enter an amount within the remaining balance.', 'warning');
+      return;
+    }
+
+    try {
+      await apiRequest(`/api/sales/${saleId}/payments`, 'POST', { amount, paymentMethod, referenceNo });
+      showToast(`Payment of $${amount.toFixed(2)} recorded.`, 'success');
+      const paymentModalEl = document.getElementById('recordPaymentModal');
+      paymentModalEl.addEventListener('hidden.bs.modal', () => {
+        reloadAfterInvoice = true;
+        viewSaleInvoice(saleId);
+      }, {once: true});
+      bootstrap.Modal.getInstance(paymentModalEl).hide();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  async function viewSaleInvoice(id) {
+    document.getElementById('a5InvNo').textContent = `INV-${String(id).padStart(6, '0')}`;
+    document.getElementById('a5InvDate').textContent = 'Loading...';
+    document.getElementById('a5InvEmployee').textContent = 'Loading...';
+    document.getElementById('a5InvCustomer').textContent = 'Loading...';
+    document.getElementById('a5InvPhone').textContent = 'Loading...';
+    document.getElementById('a5InvStatus').textContent = '...';
+    document.getElementById('a5InvSubtotal').textContent = '$0.00';
+    document.getElementById('a5InvDiscount').textContent = '-$0.00';
+    document.getElementById('a5InvGrandTotal').textContent = '$0.00';
+    document.getElementById('a5InvPaid').textContent = '$0.00';
+    document.getElementById('a5InvRemaining').textContent = '$0.00';
+    document.getElementById('a5InvPayMethod').textContent = 'Payment: ...';
+    document.getElementById('a5InvNote').textContent = 'Note: ...';
+
+    const tbody = document.getElementById('a5InvoiceItemsTbody');
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">Loading invoice items...</td></tr>';
+
+    const modalEl = document.getElementById('invoiceModal');
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+
+    try {
+      const [sale, details] = await Promise.all([
+        apiRequest(`/api/sales/${id}`),
+        apiRequest(`/api/sales/${id}/details`)
+      ]);
+
+      document.getElementById('a5InvNo').textContent = `INV-${String(sale.saleId || id).padStart(6, '0')}`;
+      
+      let dateDisplay = sale.saleDate || '';
+      if (sale.createdAt) {
+        const createdDate = new Date(sale.createdAt);
+        if (!isNaN(createdDate.getTime())) {
+          dateDisplay = createdDate.toISOString().replace('T', ' ').substring(0, 16);
+        }
+      }
+      document.getElementById('a5InvDate').textContent = dateDisplay || 'N/A';
+      document.getElementById('a5InvEmployee').textContent = sale.employee ? (sale.employee.fullName || 'Staff') : 'Staff';
+      document.getElementById('a5InvCustomer').textContent = sale.customer ? (sale.customer.customerName || 'Walk-in Customer') : 'Walk-in Customer';
+      document.getElementById('a5InvPhone').textContent = sale.customer && sale.customer.phone ? sale.customer.phone : 'N/A';
+
+      const statusBadge = document.getElementById('a5InvStatus');
+      statusBadge.textContent = sale.status || 'N/A';
+      if (sale.status === 'COMPLETED') {
+        statusBadge.className = 'fw-bold text-success';
+      } else if (sale.status === 'PENDING') {
+        statusBadge.className = 'fw-bold text-warning';
+      } else {
+        statusBadge.className = 'fw-bold text-muted';
+      }
+
+      let calcSubtotal = 0;
+      let calcDiscount = 0;
+
+      if (!details || details.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">No items listed.</td></tr>';
+      } else {
+        tbody.innerHTML = details.map((d, index) => {
+          const qty = Number(d.quantity || 1);
+          const unitPrice = Number(d.unitPrice || 0);
+          const disc = Number(d.discount || 0);
+          const lineGross = qty * unitPrice;
+          const lineDisc = Math.min(lineGross, disc);
+          const lineNet = Number(d.subtotal != null ? d.subtotal : Math.max(0, lineGross - lineDisc));
+
+          calcSubtotal += lineGross;
+          calcDiscount += lineDisc;
+
+          const v = d.variant || {};
+          const p = v.product || {};
+          const prodName = p.productName || 'Apparel Item';
+          const sku = v.sku || '';
+          const size = v.sizeName || '';
+          const color = v.colorName || '';
+          const specParts = [size, color].filter(Boolean);
+          const specText = specParts.length > 0 ? specParts.join(' / ') : '';
+
+          return `
+            <tr>
+              <td class="text-start">${index + 1}</td>
+              <td class="text-start">
+                <div class="fw-bold">${escapeHtml(prodName)}</div>
+                <div class="text-muted" style="font-size: 10px;">${escapeHtml(sku)}${specText ? ' &bull; ' + escapeHtml(specText) : ''}</div>
+              </td>
+              <td class="text-center">${qty}</td>
+              <td class="text-end">$${unitPrice.toFixed(2)}</td>
+              <td class="text-end">${lineDisc > 0 ? '-$' + lineDisc.toFixed(2) : '$0.00'}</td>
+              <td class="text-end fw-semibold">$${lineNet.toFixed(2)}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      const subtotal = Number(sale.subtotal != null ? sale.subtotal : calcSubtotal);
+      const discount = Number(sale.discount != null ? sale.discount : calcDiscount);
+      const grandTotal = Number(sale.grandTotal != null ? sale.grandTotal : Math.max(0, subtotal - discount));
+      const paid = Number(sale.paidAmount != null ? sale.paidAmount : (sale.status === 'COMPLETED' ? grandTotal : 0));
+      const remaining = Number(sale.remainingBalance != null ? sale.remainingBalance : Math.max(0, grandTotal - paid));
+
+      document.getElementById('a5InvSubtotal').textContent = '$' + subtotal.toFixed(2);
+      document.getElementById('a5InvDiscount').textContent = discount > 0 ? '-$' + discount.toFixed(2) : '$0.00';
+      document.getElementById('a5InvGrandTotal').textContent = '$' + grandTotal.toFixed(2);
+      document.getElementById('a5InvPaid').textContent = '$' + paid.toFixed(2);
+      document.getElementById('a5InvRemaining').textContent = '$' + remaining.toFixed(2);
+
+      let payInfoText = 'Payment: Cash / Counter';
+      if (sale.payments && sale.payments.length > 0) {
+        payInfoText = 'Payment: ' + sale.payments.map(p => {
+          const m = p.paymentMethod || 'CASH';
+          const a = Number(p.amount || 0).toFixed(2);
+          const r = p.referenceNo ? ` (Ref: ${p.referenceNo})` : '';
+          return `${m} $${a}${r}`;
+        }).join(' | ');
+      }
+      document.getElementById('a5InvPayMethod').textContent = payInfoText;
+      document.getElementById('a5InvNote').textContent = 'Note: ' + (sale.note && sale.note.trim() ? sale.note.trim() : 'Thank you for your business.');
+
+    } catch (err) {
+      console.error('Invoice load error', err);
+      tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger py-3">${escapeHtml(err.message || 'Failed to load invoice details.')}</td></tr>`;
+    }
+  }
+
+  function printA5Receipt() {
+    document.body.classList.add('printing-invoice');
+    window.print();
+    setTimeout(() => {
+      document.body.classList.remove('printing-invoice');
+    }, 1200);
+  }
+
+  window.addEventListener('afterprint', () => {
+    document.body.classList.remove('printing-invoice');
+  });
+
+  document.addEventListener('DOMContentLoaded', loadMasterVariants);
+  document.getElementById('newSaleModal')?.addEventListener('show.bs.modal', loadMasterVariants);
+  document.getElementById('invoiceModal')?.addEventListener('hidden.bs.modal', () => {
+    if (reloadAfterInvoice) {
+      window.location.reload();
+    }
+  });
+</script>
+</body>
+</html>

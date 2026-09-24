@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/nav :: head('Staff')}"></head>
+<body>
+<div class="app-wrapper">
+    <aside th:replace="~{fragments/nav :: sidebar('staff')}"></aside>
+    <div class="main-wrapper">
+        <header th:replace="~{fragments/nav :: topbar('Staff', 'Administration / Staff')}"></header>
+        <main class="content-body">
+
+            <!-- Page Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h3 class="fw-bold mb-1">Staff</h3>
+                    <p class="text-muted mb-0">Employee profiles used as sales representatives and handlers in transactions.</p>
+                    <p class="small text-muted mt-1 mb-0">
+                        <strong>Note:</strong> Staff records are separate from login accounts. A staff member linked to a cashier account can log in. Others appear only as assignable employees in sales and purchases.
+                    </p>
+                </div>
+                <button class="btn btn-brand-primary" onclick="openCreateStaff()">Add Staff</button>
+            </div>
+
+            <div id="staffMessage" class="alert d-none"></div>
+
+            <!-- Info Cards -->
+            <div class="row g-3 mb-4" id="staffSummaryCards">
+                <div class="col-md-3">
+                    <div class="card text-center py-3">
+                        <div class="fs-2 fw-bold text-brand" id="cardTotal">—</div>
+                        <div class="text-muted small">Total Staff</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center py-3">
+                        <div class="fs-2 fw-bold text-success" id="cardActive">—</div>
+                        <div class="text-muted small">Active</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center py-3">
+                        <div class="fs-2 fw-bold text-secondary" id="cardInactive">—</div>
+                        <div class="text-muted small">Inactive</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center py-3">
+                        <div class="fs-2 fw-bold text-primary" id="cardLinked">—</div>
+                        <div class="text-muted small">Linked to Login</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Staff Table -->
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="table-pro mb-0">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Position</th>
+                                <th>Contact</th>
+                                <th>Hire Date</th>
+                                <th>Login Account</th>
+                                <th>Status</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="staffRows">
+                            <tr><td colspan="7" class="text-center text-muted py-4">Loading staff...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- Add / Edit Staff Modal -->
+<div class="modal fade" id="staffModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header-brand">
+                <h5 class="modal-title" id="staffModalTitle">Add Staff</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="staffForm">
+                <input type="hidden" name="employeeId">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Name <span class="text-danger">*</span></label>
+                            <input name="employeeName" class="form-control" required placeholder="Full name">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Position / Role</label>
+                            <select name="position" class="form-select">
+                                <option value="">Select position</option>
+                                <option value="Cashier">Cashier</option>
+                                <option value="Store Manager">Store Manager</option>
+                                <option value="Sales Associate">Sales Associate</option>
+                                <option value="Inventory Clerk">Inventory Clerk</option>
+                                <option value="Lead Cashier">Lead Cashier</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Gender</label>
+                            <select name="gender" class="form-select">
+                                <option value="">Not specified</option>
+                                <option>Female</option>
+                                <option>Male</option>
+                                <option>Other</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Phone</label>
+                            <input name="phone" class="form-control" placeholder="e.g. 012 345 678">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email</label>
+                            <input name="email" type="email" class="form-control" placeholder="staff@example.com">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Hire Date</label>
+                            <input name="hireDate" type="date" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="ACTIVE">ACTIVE</option>
+                                <option value="INACTIVE">INACTIVE</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Address</label>
+                            <input name="address" class="form-control" placeholder="Optional">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-brand-primary" id="staffSubmitButton">Create Staff</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Create Login Modal (for existing staff) -->
+<div class="modal fade" id="createLoginModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header-brand">
+                <h5 class="modal-title">Create Login: <span id="loginStaffName" class="fw-bold"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="createLoginForm" onsubmit="submitCreateLogin(event)">
+                <input type="hidden" id="loginEmployeeId">
+                <div class="modal-body">
+                    <div class="alert alert-info small mb-3">Creates a Cashier login account linked to this staff member. They can then log in to access Sales &amp; Customers.</div>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">Username <span class="text-danger">*</span></label>
+                            <input id="loginUsername" class="form-control" required maxlength="80" autocomplete="off" placeholder="e.g. john_cashier">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Password <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <input id="loginPassword" type="password" class="form-control" minlength="12" maxlength="72" required autocomplete="new-password" placeholder="12+ chars with upper/lower/number/symbol">
+                                <button type="button" class="btn btn-outline-secondary" onclick="toggleLoginPwd('loginPassword', this)" tabindex="-1">Show</button>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Confirm Password <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <input id="loginPasswordConfirm" type="password" class="form-control" minlength="12" maxlength="72" required autocomplete="new-password" placeholder="Re-enter password">
+                                <button type="button" class="btn btn-outline-secondary" onclick="toggleLoginPwd('loginPasswordConfirm', this)" tabindex="-1">Show</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-brand-primary">Create Login</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/nav :: scripts}"></div>
+<script>
+let staff = [];
+let accounts = [];
+const staffMessage = document.getElementById('staffMessage');
+
+function showStaffMessage(text, type) {
+    staffMessage.textContent = text;
+    staffMessage.className = 'alert alert-' + type;
+    staffMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (type === 'success') setTimeout(() => { staffMessage.className = 'alert d-none'; }, 6000);
+}
+
+function updateSummaryCards() {
+    document.getElementById('cardTotal').textContent = staff.length;
+    document.getElementById('cardActive').textContent = staff.filter(e => e.status === 'ACTIVE').length;
+    document.getElementById('cardInactive').textContent = staff.filter(e => e.status === 'INACTIVE').length;
+    // Count staff who have a linked user account
+    const linkedEmployeeIds = new Set(accounts.map(a => Number(a.employeeId)).filter(id => id > 0));
+    document.getElementById('cardLinked').textContent = staff.filter(e => linkedEmployeeIds.has(Number(e.employeeId))).length;
+}
+
+function renderStaff() {
+    const linkedAccountMap = {};
+    accounts.forEach(a => {
+        if (a.employeeId && Number(a.employeeId) > 0) {
+            linkedAccountMap[Number(a.employeeId)] = a;
+        }
+    });
+
+    document.getElementById('staffRows').innerHTML = staff.length === 0
+        ? `<tr><td colspan="7" class="text-center text-muted py-5">No staff records found. Click <strong>Add Staff</strong> to get started.</td></tr>`
+        : staff.map(employee => {
+            const linked = linkedAccountMap[Number(employee.employeeId)];
+            const linkedBadge = linked
+                ? `<span class="badge bg-primary-subtle text-primary" title="Login: ${escapeHtml(linked.username)}">${escapeHtml(linked.username)}</span>`
+                : `<span class="text-muted small">No login</span>`;
+            return `<tr>
+                <td class="fw-bold">${escapeHtml(employee.employeeName)}</td>
+                <td>${escapeHtml(employee.position || '—')}</td>
+                <td>
+                    ${employee.phone ? escapeHtml(employee.phone) : ''}
+                    ${employee.email ? `<br><small class="text-muted">${escapeHtml(employee.email)}</small>` : ''}
+                    ${!employee.phone && !employee.email ? '<span class="text-muted small">—</span>' : ''}
+                </td>
+                <td>${escapeHtml(employee.hireDate || '—')}</td>
+                <td>${linkedBadge}</td>
+                <td>${employee.status === 'ACTIVE'
+                    ? '<span class="badge-status active">Active</span>'
+                    : '<span class="badge-status inactive">Inactive</span>'}</td>
+                <td class="text-end">
+                    <div class="d-flex gap-2 justify-content-end">
+                        <button class="btn btn-sm btn-outline-primary" onclick="editStaff(${Number(employee.employeeId)})">Edit</button>
+                        ${!linked && employee.status === 'ACTIVE'
+                            ? `<button class="btn btn-sm btn-outline-success" onclick="openCreateLogin(${Number(employee.employeeId)})" title="Create login account for this staff">Create Login</button>`
+                            : ''}
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteStaff(${Number(employee.employeeId)})">Delete</button>
+                    </div>
+                </td>
+            </tr>`;
+        }).join('');
+
+    updateSummaryCards();
+}
+
+async function loadStaff() {
+    try {
+        [staff, accounts] = await Promise.all([
+            apiRequest('/api/staff'),
+            apiRequest('/api/user-control')
+        ]);
+        renderStaff();
+    } catch (error) {
+        showStaffMessage(error.message, 'danger');
+    }
+}
+
+function openCreateStaff() {
+    const form = document.getElementById('staffForm');
+    form.reset();
+    form.elements.employeeId.value = '';
+    form.elements.status.value = 'ACTIVE';
+    document.getElementById('staffModalTitle').textContent = 'Add Staff';
+    document.getElementById('staffSubmitButton').textContent = 'Create Staff';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('staffModal')).show();
+}
+
+function editStaff(id) {
+    const employee = staff.find(item => Number(item.employeeId) === id);
+    if (!employee) return;
+    const form = document.getElementById('staffForm');
+    form.reset();
+    Object.keys(employee).forEach(key => {
+        const input = form.elements[key];
+        if (input) input.value = employee[key] || '';
+    });
+    // Handle position select: add custom value if not in list
+    const position = employee.position || '';
+    const positionSelect = form.elements.position;
+    if (position && !Array.from(positionSelect.options).some(opt => opt.value === position)) {
+        positionSelect.add(new Option(position, position));
+    }
+    positionSelect.value = position;
+    // Handle gender select
+    const genderSelect = form.elements.gender;
+    const gender = employee.gender || '';
+    if (gender && !Array.from(genderSelect.options).some(opt => opt.value === gender)) {
+        genderSelect.add(new Option(gender, gender));
+    }
+    genderSelect.value = gender;
+    form.elements.status.value = employee.status || 'ACTIVE';
+    form.elements.employeeId.value = id;
+    document.getElementById('staffModalTitle').textContent = 'Edit Staff';
+    document.getElementById('staffSubmitButton').textContent = 'Save Changes';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('staffModal')).show();
+}
+
+document.getElementById('staffForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.target));
+    const id = data.employeeId;
+    delete data.employeeId;
+    // Remove empty strings for optional fields
+    ['gender', 'phone', 'email', 'address', 'hireDate', 'position'].forEach(k => {
+        if (data[k] === '') delete data[k];
+    });
+    try {
+        await apiRequest(id ? '/api/staff/' + id : '/api/staff', id ? 'PUT' : 'POST', data);
+        bootstrap.Modal.getInstance(document.getElementById('staffModal')).hide();
+        showStaffMessage(id ? 'Staff member updated successfully.' : 'Staff member created successfully.', 'success');
+        loadStaff();
+    } catch (error) {
+        showStaffMessage(error.message, 'danger');
+    }
+});
+
+async function deleteStaff(id) {
+    const employee = staff.find(e => Number(e.employeeId) === id);
+    const name = employee ? employee.employeeName : 'this staff member';
+    if (!confirm(`Remove "${name}" from staff? If they have linked records, they will be deactivated instead of deleted.`)) return;
+    try {
+        const result = await apiRequest('/api/staff/' + id, 'DELETE');
+        showStaffMessage(result.message, result.action === 'DEACTIVATED' ? 'warning' : 'success');
+        loadStaff();
+    } catch (error) {
+        showStaffMessage(error.message, 'danger');
+    }
+}
+
+function openCreateLogin(employeeId) {
+    const employee = staff.find(item => Number(item.employeeId) === Number(employeeId));
+    if (!employee) return;
+    document.getElementById('loginEmployeeId').value = employeeId;
+    document.getElementById('loginStaffName').textContent = employee.employeeName;
+    document.getElementById('loginUsername').value = '';
+    document.getElementById('loginPassword').value = '';
+    document.getElementById('loginPasswordConfirm').value = '';
+    ['loginPassword', 'loginPasswordConfirm'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.type = 'password';
+    });
+    document.querySelectorAll('#createLoginForm .btn-outline-secondary').forEach(btn => btn.textContent = 'Show');
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('createLoginModal')).show();
+}
+
+function toggleLoginPwd(id, btn) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const isPwd = el.type === 'password';
+    el.type = isPwd ? 'text' : 'password';
+    btn.textContent = isPwd ? 'Hide' : 'Show';
+}
+
+async function submitCreateLogin(event) {
+    event.preventDefault();
+    const employeeId = document.getElementById('loginEmployeeId').value;
+    const username = document.getElementById('loginUsername').value;
+    const password = document.getElementById('loginPassword').value;
+    const confirm = document.getElementById('loginPasswordConfirm').value;
+    if (password !== confirm) {
+        showStaffMessage('Passwords do not match.', 'danger');
+        return;
+    }
+    try {
+        await apiRequest('/api/user-control/cashiers/link/' + employeeId, 'POST', { username, password });
+        bootstrap.Modal.getInstance(document.getElementById('createLoginModal')).hide();
+        showStaffMessage('Login account created successfully. Share the password securely.', 'success');
+        loadStaff();
+    } catch (error) {
+        showStaffMessage(error.message, 'danger');
+    }
+}
+
+loadStaff();
+</script>
+</body>
+</html>

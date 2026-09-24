@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/nav :: head('Stock')}"></head>
+<body>
+<div class="app-wrapper">
+    <aside th:replace="~{fragments/nav :: sidebar('stock')}"></aside>
+
+    <div class="main-wrapper">
+        <header th:replace="~{fragments/nav :: topbar('Stock', 'Inventory & Movements')}"></header>
+
+        <main class="content-body">
+            <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+                <div>
+                    <h3 class="fw-bold mb-1" style="color: var(--color-primary-navy);">Stock & movements</h3>
+                    <p class="text-muted mb-0">Review current stock, low stock items, and inventory changes.</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-brand-outline" onclick="openAdjustStockModal()">
+                         Adjust Stock
+                    </button>
+                    <button class="btn btn-brand-primary" onclick="window.location.href='/purchases'">
+                         Restock via Purchase
+                    </button>
+                    <button class="btn btn-brand-outline" onclick="window.location.reload()">
+                         Refresh Data
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tabs Navigation -->
+            <ul class="nav nav-pills mb-4 gap-2" id="stockTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active fw-bold px-4 py-2" id="tab-inventory-btn" data-bs-toggle="pill" data-bs-target="#tab-inventory" type="button" role="tab">
+                         Current stock
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link fw-bold px-4 py-2 text-danger d-flex align-items-center" id="tab-low-stock-btn" data-bs-toggle="pill" data-bs-target="#tab-low-stock" type="button" role="tab">
+                         Low stock
+                        <span th:if="${not #lists.isEmpty(lowStockList)}" class="badge ms-2" style="background:var(--bs-danger); color:#fff; font-size:11px;" th:text="${#lists.size(lowStockList)}">0</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link fw-bold px-4 py-2" id="tab-movements-btn" data-bs-toggle="pill" data-bs-target="#tab-movements" type="button" role="tab">
+                         Movement log
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="stockTabContent">
+                <!-- Tab 1: Current Stock -->
+                <div class="tab-pane fade show active" id="tab-inventory" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header-clean">
+                            <h5 class="card-title-clean">All Product Variants Stock Valuation</h5>
+                            <div class="search-box">
+                                
+                                <input type="text" id="stockSearch" class="form-control form-control-sm" placeholder="Search SKU or style...">
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table-pro" id="stockTable">
+                                <thead>
+                                <tr>
+                                    <th>SKU</th>
+                                    <th>Product Name</th>
+                                    <th>Category</th>
+                                    <th>Size</th>
+                                    <th>Color</th>
+                                    <th>Cost ($)</th>
+                                    <th>Price ($)</th>
+                                    <th>Stock Qty</th>
+                                    <th>Stock Cost Val</th>
+                                    <th>Stock Retail Val</th>
+                                    <th class="text-end">Actions</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:if="${#lists.isEmpty(stockList)}">
+                                    <td colspan="11" class="text-center text-muted py-4">No stock records found.</td>
+                                </tr>
+                                <tr th:each="row : ${stockList}">
+                                    <td class="fw-bold" th:text="${row['SKU']}">TS-BLK-M</td>
+                                    <td class="fw-semibold text-primary" th:text="${row['PRODUCT_NAME']}">Classic T-Shirt</td>
+                                    <td><span class="badge bg-light text-dark border" th:text="${row['CATEGORY_NAME']}">T-Shirts</span></td>
+                                    <td th:text="${row['SIZE_NAME']}">M</td>
+                                    <td th:text="${row['COLOR_NAME']}">Black</td>
+                                    <td th:text="'$' + ${#numbers.formatDecimal(row['COST_PRICE'] ?: 0, 1, 2)}">$5.00</td>
+                                    <td class="fw-bold text-success" th:text="'$' + ${#numbers.formatDecimal(row['SALE_PRICE'] ?: 0, 1, 2)}">$8.00</td>
+                                    <td>
+                                        <span th:class="'badge ' + (${row['STOCK_QTY'] <= 10} ? 'bg-danger' : 'bg-success')"
+                                              th:text="${row['STOCK_QTY']} + ' units'">18 units</span>
+                                    </td>
+                                    <td class="text-muted" th:text="'$' + ${#numbers.formatDecimal(row['STOCK_COST_VALUE'] ?: 0, 1, 2)}">$90.00</td>
+                                    <td class="fw-bold text-primary" th:text="'$' + ${#numbers.formatDecimal(row['STOCK_SALE_VALUE'] ?: 0, 1, 2)}">$144.00</td>
+                                    <td class="text-end">
+                                        <button class="btn btn-sm btn-brand-outline py-0 px-2"
+                                                type="button"
+                                                th:data-variant-id="${row['VARIANT_ID']}"
+                                                th:data-sku="${row['SKU']}"
+                                                th:data-name="${row['PRODUCT_NAME']}"
+                                                th:data-stock="${row['STOCK_QTY']}"
+                                                onclick="openAdjustStockModal(this.dataset.variantId, this.dataset.sku, this.dataset.name, this.dataset.stock)">
+                                            Adjust
+                                        </button>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 2: Low Stock Alerts -->
+                <div class="tab-pane fade" id="tab-low-stock" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header-clean flex-wrap gap-2">
+                            <div>
+                                <h5 class="card-title-clean text-danger mb-0">
+                                    Items Requiring Restock
+                                </h5>
+                                <div class="small text-muted">
+                                    <span th:text="${#lists.size(lowStockList)}">0</span> variant(s) below threshold (stock &le; 10 units)
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <input type="text" id="lowStockSearch" class="form-control form-control-sm" placeholder="Search low stock..." style="max-width: 180px;">
+                                <button type="button" id="btnBatchReorder" class="btn btn-sm btn-brand-primary" onclick="openBatchReorderModal()" disabled>
+                                    Batch Reorder (<span id="selectedCount">0</span>)
+                                </button>
+                                <button type="button" class="btn btn-sm btn-brand-outline" onclick="selectAllLowStockRows()">
+                                    Select All
+                                </button>
+                                <a href="/purchases" class="btn btn-sm btn-brand-outline">
+                                    New Custom PO
+                                </a>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table-pro align-middle" id="lowStockTable">
+                                <thead>
+                                <tr>
+                                    <th style="width: 38px; text-align: center;">
+                                        <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this)" title="Select all items" aria-label="Select all items">
+                                    </th>
+                                    <th>Item & Style</th>
+                                    <th>SKU</th>
+                                    <th>Variant</th>
+                                    <th>Stock Level</th>
+                                    <th>Unit Cost</th>
+                                    <th>Suggested Restock</th>
+                                    <th class="text-end">Actions</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:if="${#lists.isEmpty(lowStockList)}">
+                                    <td colspan="8" class="text-center text-success py-5">
+                                        <div class="fw-bold fs-6">All stock levels healthy</div>
+                                        <div class="text-muted small">No product variants are currently below the reorder threshold.</div>
+                                    </td>
+                                </tr>
+                                <tr th:each="row : ${lowStockList}"
+                                    class="low-stock-row"
+                                    th:attr="data-variant-id=${row['VARIANT_ID']},
+                                             data-sku=${row['SKU']},
+                                             data-product-name=${row['PRODUCT_NAME']},
+                                             data-category=${row['CATEGORY_NAME']},
+                                             data-size=${row['SIZE_NAME']},
+                                             data-color=${row['COLOR_NAME']},
+                                             data-stock=${row['STOCK_QTY']},
+                                             data-cost=${row['COST_PRICE'] ?: 0},
+                                             data-sale=${row['SALE_PRICE'] ?: 0}">
+                                    <td style="text-align: center;">
+                                        <input type="checkbox" class="low-stock-cb" onchange="onRowCheckboxChange()">
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div th:if="${row['IMAGE_URL'] != null and !#strings.isEmpty(row['IMAGE_URL'])}">
+                                                <img th:src="${row['IMAGE_URL']}" alt="Product" class="rounded border" style="width: 36px; height: 36px; object-fit: cover;">
+                                            </div>
+                                            <div>
+                                                <div class="fw-bold" style="color: var(--ink);" th:text="${row['PRODUCT_NAME']}">Classic T-Shirt</div>
+                                                <div class="small text-muted" th:text="${row['CATEGORY_NAME'] ?: 'Apparel'}">T-Shirts</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <code class="fw-bold" style="color: var(--ink); background: var(--soft); padding: 2px 6px; border-radius: 2px;" th:text="${row['SKU']}">TS-BLK-M</code>
+                                    </td>
+                                    <td>
+                                        <span class="badge border" style="background: var(--paper); color: var(--ink); border-color: var(--line) !important;" th:text="${row['SIZE_NAME']}">M</span>
+                                        <span class="badge border ms-1" style="background: var(--paper); color: var(--ink); border-color: var(--line) !important;" th:text="${row['COLOR_NAME']}">Black</span>
+                                    </td>
+                                    <td>
+                                        <span th:if="${row['STOCK_QTY'] == 0}" class="badge" style="background: #8d4b40; color: #fff; font-size: 11px; padding: 4px 8px;">
+                                            0 units (Out of Stock)
+                                        </span>
+                                        <span th:if="${row['STOCK_QTY'] > 0 and row['STOCK_QTY'] <= 5}" class="badge" style="background: #b45309; color: #fff; font-size: 11px; padding: 4px 8px;" th:text="${row['STOCK_QTY']} + ' left (Critical)'">
+                                            3 left (Critical)
+                                        </span>
+                                        <span th:if="${row['STOCK_QTY'] > 5}" class="badge" style="background: var(--soft); color: var(--ink); border: 1px solid var(--line); font-size: 11px; padding: 4px 8px;" th:text="${row['STOCK_QTY']} + ' left (Low)'">
+                                            8 left (Low)
+                                        </span>
+                                    </td>
+                                    <td class="text-muted" th:text="'$' + ${#numbers.formatDecimal(row['COST_PRICE'] ?: 0, 1, 2)}">$5.00</td>
+                                    <td>
+                                        <span class="fw-bold" style="color: #4f5c46;"
+                                              th:with="suggestedQty=${(row['STOCK_QTY'] == null || row['STOCK_QTY'] < 10) ? (30 - (row['STOCK_QTY'] ?: 0)) : 20}"
+                                              th:text="'+' + ${suggestedQty} + ' units'">
+                                            +30 units
+                                        </span>
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="d-inline-flex gap-1">
+                                            <button type="button" class="btn btn-sm btn-brand-primary" onclick="triggerRowQuickReorder(this)">
+                                                Reorder
+                                            </button>
+                                            <a th:href="@{/purchases(reorderVariantId=${row['VARIANT_ID']},qty=${(row['STOCK_QTY'] == null || row['STOCK_QTY'] < 10) ? (30 - (row['STOCK_QTY'] ?: 0)) : 20},cost=${row['COST_PRICE'] ?: 0})}"
+                                               class="btn btn-sm btn-brand-outline" title="Open full PO editor">
+                                                PO Form
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Stock Movement Log -->
+                <div class="tab-pane fade" id="tab-movements" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header-clean">
+                            <h5 class="card-title-clean">
+                                
+                                Stock Movement Audit Trail
+                            </h5>
+                            <span class="small text-muted">Recorded inventory changes</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table-pro">
+                                <thead>
+                                <tr>
+                                    <th>Log ID</th>
+                                    <th>Date & Time</th>
+                                    <th>Product Style</th>
+                                    <th>SKU</th>
+                                    <th>Movement Type</th>
+                                    <th>Reference</th>
+                                    <th>Qty Changed</th>
+                                    <th>Note</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:if="${#lists.isEmpty(movementList)}">
+                                    <td colspan="8" class="text-center text-muted py-4">No stock movements recorded.</td>
+                                </tr>
+                                <tr th:each="m : ${movementList}">
+                                    <td class="fw-bold text-muted" th:text="'#' + ${m['MOVEMENT_ID']}">#1</td>
+                                    <td class="small" th:text="${m['MOVEMENT_DATE']}">2026-09-16 15:52:00</td>
+                                    <td class="fw-semibold" th:text="${m['PRODUCT_NAME']}">Classic T-Shirt</td>
+                                    <td class="text-muted" th:text="${m['SKU']}">TS-BLK-M</td>
+                                    <td>
+                                        <span th:if="${m['MOVEMENT_TYPE'] == 'IN'}" class="badge bg-success">IN (+Stock)</span>
+                                        <span th:if="${m['MOVEMENT_TYPE'] == 'OUT'}" class="badge bg-danger">OUT (-Stock)</span>
+                                        <span th:if="${m['MOVEMENT_TYPE'] != 'IN' and m['MOVEMENT_TYPE'] != 'OUT'}" class="badge bg-secondary" th:text="${m['MOVEMENT_TYPE']}">TYPE</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border" th:text="${m['REFERENCE_TYPE'] + ' #' + (m['REFERENCE_ID'] ?: '-')}">SALE #1</span>
+                                    </td>
+                                    <td>
+                                        <span class="fw-bold" th:text="${m['SIGNED_QUANTITY'] != null and m['SIGNED_QUANTITY'] > 0 ? '+' + m['SIGNED_QUANTITY'] : m['SIGNED_QUANTITY']}">-3</span>
+                                    </td>
+                                    <td class="small text-muted" th:text="${m['NOTE'] ?: 'Auto log'}">Sale completed</td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- Quick Reorder Modal -->
+<div class="modal fade" id="quickReorderModal" tabindex="-1" aria-labelledby="quickReorderModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header-brand">
+                <h5 class="modal-title" id="quickReorderModalLabel">Quick Restock Order</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="quickReorderForm" onsubmit="submitQuickReorder(event)">
+                <div class="modal-body">
+                    <!-- Variant preview card -->
+                    <div class="p-3 mb-3 border rounded" style="background: var(--soft); border-color: var(--line) !important;">
+                        <div class="d-flex justify-content-between align-items-start gap-2">
+                            <div>
+                                <div class="fw-bold fs-6" id="qrProductName" style="color: var(--ink);">Product Name</div>
+                                <div class="small text-muted mt-1" id="qrProductMeta">SKU: - | Size: - | Color: -</div>
+                            </div>
+                            <div class="text-end">
+                                <span id="qrStockBadge" class="badge bg-danger">0 left</span>
+                                <div class="small text-muted mt-1">Cost: $<span id="qrUnitCostText">0.00</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <input type="hidden" id="qrVariantId">
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Select Supplier <span class="text-danger">*</span></label>
+                            <select class="form-select form-select-sm" id="qrSupplierId" required>
+                                <option value="">Choose Supplier</option>
+                                <option th:each="sup : ${suppliers}" th:value="${sup.supplierId}" th:text="${sup.supplierName}"></option>
+                            </select>
+                            <div th:if="${#lists.isEmpty(suppliers)}" class="small text-danger mt-1">
+                                No active suppliers found.
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Receiving Staff <span class="text-danger">*</span></label>
+                            <select class="form-select form-select-sm" id="qrEmployeeId" required>
+                                <option th:each="emp : ${employees}" th:value="${emp.employeeId}" th:text="${emp.employeeName}"
+                                        th:selected="${currentEmployeeId != null and currentEmployeeId == emp.employeeId}"></option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Replenishment Qty <span class="text-danger">*</span></label>
+                            <input type="number" min="1" class="form-control form-control-sm" id="qrQuantity" value="25" required oninput="calculateQuickTotal()">
+                            <div class="form-text small text-muted">Suggested target stock: 30 units</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Unit Cost Price ($) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="qrCostPrice" value="5.00" required oninput="calculateQuickTotal()">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Order Note</label>
+                            <input type="text" class="form-control form-control-sm" id="qrNote" placeholder="e.g. Urgent restock for low stock alert">
+                        </div>
+                    </div>
+
+                    <!-- Instant Receipt Toggle -->
+                    <div class="form-check form-switch mt-3 p-2 ps-5 border rounded" style="background: var(--ground); border-color: var(--line) !important;">
+                        <input class="form-check-input" type="checkbox" id="qrReceiveImmediately" checked>
+                        <label class="form-check-label fw-semibold" for="qrReceiveImmediately">
+                            Receive Stock Immediately
+                        </label>
+                        <div class="small text-muted">Complete PO and increment inventory count immediately.</div>
+                    </div>
+
+                    <!-- Total cost -->
+                    <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+                        <span class="text-muted fw-bold">Grand Order Total:</span>
+                        <span class="fs-5 fw-bold text-primary" id="qrTotalDisplay">$0.00</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-brand-outline" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" id="qrSubmitBtn" class="btn btn-sm btn-brand-primary" th:disabled="${#lists.isEmpty(suppliers)}">
+                        Confirm & Restock
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Batch Reorder Modal -->
+<div class="modal fade" id="batchReorderModal" tabindex="-1" aria-labelledby="batchReorderModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header-brand">
+                <div class="d-flex align-items-center gap-2">
+                    <h5 class="modal-title" id="batchReorderModalLabel">Batch Restock Order</h5>
+                    <span class="badge" style="background: var(--ink); color: #fff;" id="batchItemsBadge">0 Items</span>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="batchReorderForm" onsubmit="submitBatchReorder(event)">
+                <div class="modal-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Primary Supplier <span class="text-danger">*</span></label>
+                            <select class="form-select form-select-sm" id="batchSupplierId" required>
+                                <option value="">Select Supplier</option>
+                                <option th:each="sup : ${suppliers}" th:value="${sup.supplierId}" th:text="${sup.supplierName}"></option>
+                            </select>
+                            <div th:if="${#lists.isEmpty(suppliers)}" class="small text-danger mt-1">
+                                No active suppliers found.
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Receiving Staff <span class="text-danger">*</span></label>
+                            <select class="form-select form-select-sm" id="batchEmployeeId" required>
+                                <option th:each="emp : ${employees}" th:value="${emp.employeeId}" th:text="${emp.employeeName}"
+                                        th:selected="${currentEmployeeId != null and currentEmployeeId == emp.employeeId}"></option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Consolidated Order Note</label>
+                            <input type="text" class="form-control form-control-sm" id="batchNote" placeholder="Batch restock of low stock inventory">
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="small fw-bold text-muted text-uppercase">Replenishment Line Items</span>
+                        <span class="small text-muted" id="batchItemsCountText">0 variants selected</span>
+                    </div>
+
+                    <div class="table-responsive border rounded" style="max-height: 280px; overflow-y: auto;">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead style="background: var(--soft); position: sticky; top: 0; z-index: 2;">
+                            <tr>
+                                <th>Item & SKU</th>
+                                <th>Variant</th>
+                                <th>Stock</th>
+                                <th style="width: 110px;">Order Qty</th>
+                                <th style="width: 120px;">Cost ($)</th>
+                                <th class="text-end" style="width: 110px;">Subtotal</th>
+                                <th style="width: 40px;"></th>
+                            </tr>
+                            </thead>
+                            <tbody id="batchTableBody">
+                            <!-- Injected dynamically via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Instant Receipt Toggle -->
+                    <div class="form-check form-switch mt-3 p-2 ps-5 border rounded" style="background: var(--ground); border-color: var(--line) !important;">
+                        <input class="form-check-input" type="checkbox" id="batchReceiveImmediately" checked>
+                        <label class="form-check-label fw-semibold" for="batchReceiveImmediately">
+                            Receive Stock Immediately
+                        </label>
+                        <div class="small text-muted">All line items will be immediately completed and added to active inventory.</div>
+                    </div>
+
+                    <!-- Total cost -->
+                    <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+                        <span class="text-muted fw-bold">Consolidated PO Total:</span>
+                        <span class="fs-4 fw-bold text-primary" id="batchTotalDisplay">$0.00</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-brand-outline" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" id="batchSubmitBtn" class="btn btn-sm btn-brand-primary" th:disabled="${#lists.isEmpty(suppliers)}">
+                        Submit Batch Order
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Stock Adjustment Modal -->
+<div class="modal fade" id="adjustStockModal" tabindex="-1" aria-labelledby="adjustStockModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header-brand">
+                <h5 class="modal-title" id="adjustStockModalLabel">Adjust Inventory Stock</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="adjustStockForm" onsubmit="submitStockAdjustment(event)">
+                <div class="modal-body">
+                    <!-- Variant selection -->
+                    <div class="mb-3">
+                        <label class="form-label">Select Variant <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-sm" id="adjVariantSelect" required onchange="onAdjustVariantChanged()">
+                            <option value="">-- Choose Product Variant --</option>
+                            <option th:each="row : ${stockList}"
+                                    th:value="${row['VARIANT_ID']}"
+                                    th:data-sku="${row['SKU']}"
+                                    th:data-name="${row['PRODUCT_NAME']}"
+                                    th:data-stock="${row['STOCK_QTY']}"
+                                    th:text="${row['PRODUCT_NAME'] + ' (' + row['SKU'] + ') - Current: ' + row['STOCK_QTY'] + ' units'}"></option>
+                        </select>
+                    </div>
+
+                    <!-- Current stock info banner -->
+                    <div class="p-3 mb-3 border rounded" style="background: var(--soft); border-color: var(--line) !important;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-bold" id="adjVariantName" style="color: var(--ink);">Select a variant above</div>
+                                <div class="small text-muted" id="adjVariantSku">SKU: -</div>
+                            </div>
+                            <div class="text-end">
+                                <span class="text-muted small d-block">Current Stock</span>
+                                <span class="badge" id="adjCurrentStockBadge" style="background: var(--ink); color: #fff; font-size: 13px;">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">New Stock Count <span class="text-danger">*</span></label>
+                            <input type="number" min="0" class="form-control form-control-sm" id="adjNewQuantity" required oninput="updateAdjustDelta()">
+                            <div class="form-text small text-muted">Enter exact physical count.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Stock Delta</label>
+                            <div class="form-control form-control-sm bg-light fw-bold" id="adjDeltaDisplay">0 units</div>
+                            <div class="form-text small text-muted">Calculated variance.</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Adjustment Reason <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" id="adjReason" placeholder="e.g. Periodic stock count, damaged item, discrepancy" required maxlength="255">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-brand-outline" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" id="adjSubmitBtn" class="btn btn-sm btn-brand-primary">
+                        Confirm Adjustment
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/nav :: dbModal}"></div>
+<div th:replace="~{fragments/nav :: scripts}"></div>
+
+<script>
+  setupTableSearch('stockSearch', 'stockTable');
+  setupTableSearch('lowStockSearch', 'lowStockTable');
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const hash = window.location.hash;
+    const params = new URLSearchParams(window.location.search);
+    if (hash === '#tab-low-stock' || params.get('tab') === 'low-stock') {
+      const lowStockBtn = document.getElementById('tab-low-stock-btn');
+      if (lowStockBtn) {
+        bootstrap.Tab.getOrCreateInstance(lowStockBtn).show();
+      }
+    }
+  });
+
+  function toggleSelectAll(masterCb) {
+    const checkboxes = document.querySelectorAll('.low-stock-cb');
+    checkboxes.forEach(cb => {
+      cb.checked = masterCb.checked;
+    });
+    updateBatchButtonState();
+  }
+
+  function selectAllLowStockRows() {
+    const masterCb = document.getElementById('selectAllCheckbox');
+    if (masterCb) masterCb.checked = true;
+    const checkboxes = document.querySelectorAll('.low-stock-cb');
+    checkboxes.forEach(cb => {
+      cb.checked = true;
+    });
+    updateBatchButtonState();
+  }
+
+  function onRowCheckboxChange() {
+    const checkboxes = document.querySelectorAll('.low-stock-cb');
+    const checked = document.querySelectorAll('.low-stock-cb:checked');
+    const masterCb = document.getElementById('selectAllCheckbox');
+    if (masterCb) {
+      masterCb.checked = checkboxes.length > 0 && checked.length === checkboxes.length;
+    }
+    updateBatchButtonState();
+  }
+
+  function updateBatchButtonState() {
+    const checked = document.querySelectorAll('.low-stock-cb:checked');
+    const btn = document.getElementById('btnBatchReorder');
+    const countEl = document.getElementById('selectedCount');
+    if (countEl) countEl.textContent = checked.length;
+    if (btn) btn.disabled = (checked.length === 0);
+  }
+
+  function triggerRowQuickReorder(btn) {
+    const row = btn.closest('.low-stock-row');
+    if (!row) return;
+    const variantId = row.getAttribute('data-variant-id');
+    const sku = row.getAttribute('data-sku');
+    const productName = row.getAttribute('data-product-name');
+    const category = row.getAttribute('data-category');
+    const size = row.getAttribute('data-size');
+    const color = row.getAttribute('data-color');
+    const stock = parseInt(row.getAttribute('data-stock')) || 0;
+    const cost = parseFloat(row.getAttribute('data-cost')) || 0;
+    openQuickReorderModal(variantId, sku, productName, category, size, color, stock, cost);
+  }
+
+  function openQuickReorderModal(variantId, sku, productName, category, size, color, stock, cost) {
+    document.getElementById('qrVariantId').value = variantId;
+    document.getElementById('qrProductName').textContent = productName;
+    document.getElementById('qrProductMeta').textContent = `SKU: ${sku} | Size: ${size} | Color: ${color} | Cat: ${category || 'Apparel'}`;
+    
+    const stockBadge = document.getElementById('qrStockBadge');
+    if (stock === 0) {
+      stockBadge.className = 'badge bg-danger';
+      stockBadge.textContent = '0 left (Out of Stock)';
+    } else if (stock <= 5) {
+      stockBadge.className = 'badge';
+      stockBadge.style.background = '#b45309';
+      stockBadge.style.color = '#fff';
+      stockBadge.textContent = `${stock} left (Critical)`;
+    } else {
+      stockBadge.className = 'badge';
+      stockBadge.style.background = 'var(--soft)';
+      stockBadge.style.color = 'var(--ink)';
+      stockBadge.textContent = `${stock} left (Low)`;
+    }
+
+    document.getElementById('qrUnitCostText').textContent = Number(cost).toFixed(2);
+    document.getElementById('qrCostPrice').value = Number(cost).toFixed(2);
+    
+    const suggested = Math.max(20, 30 - stock);
+    document.getElementById('qrQuantity').value = suggested;
+    document.getElementById('qrNote').value = `Restock: ${sku} (${productName})`;
+    document.getElementById('qrReceiveImmediately').checked = true;
+
+    calculateQuickTotal();
+
+    const modal = new bootstrap.Modal(document.getElementById('quickReorderModal'));
+    modal.show();
+  }
+
+  function calculateQuickTotal() {
+    const qty = parseFloat(document.getElementById('qrQuantity').value) || 0;
+    const cost = parseFloat(document.getElementById('qrCostPrice').value) || 0;
+    const total = qty * cost;
+    document.getElementById('qrTotalDisplay').textContent = '$' + total.toFixed(2);
+  }
+
+  async function submitQuickReorder(e) {
+    e.preventDefault();
+    const btn = document.getElementById('qrSubmitBtn');
+    const variantId = Number(document.getElementById('qrVariantId').value);
+    const supplierId = Number(document.getElementById('qrSupplierId').value);
+    const employeeId = Number(document.getElementById('qrEmployeeId').value);
+    const quantity = Number(document.getElementById('qrQuantity').value);
+    const costPrice = Number(document.getElementById('qrCostPrice').value);
+    const note = document.getElementById('qrNote').value.trim();
+    const receiveImmediately = document.getElementById('qrReceiveImmediately').checked;
+
+    if (!supplierId || !employeeId || !quantity || quantity <= 0 || costPrice < 0) {
+      showToast('Please check all required fields.', 'warning');
+      return;
+    }
+
+    btn.disabled = true;
+    const originalText = btn.textContent;
+    btn.textContent = 'Processing...';
+
+    try {
+      const payload = {
+        supplierId,
+        employeeId,
+        note: note || `Restock variant #${variantId}`,
+        receiveImmediately,
+        items: [{ variantId, quantity, costPrice }]
+      };
+
+      const res = await apiRequest('/api/purchases', 'POST', payload);
+      const modalEl = document.getElementById('quickReorderModal');
+      const modal = bootstrap.Modal.getInstance(modalEl);
+      if (modal) modal.hide();
+
+      if (receiveImmediately) {
+        showToast(`Stock replenished successfully! PO #${res.purchaseId} completed (+${quantity} units).`, 'success');
+      } else {
+        showToast(`Purchase Order #${res.purchaseId} created in Pending status.`, 'success');
+      }
+
+      setTimeout(() => {
+        window.location.hash = '#tab-low-stock';
+        window.location.reload();
+      }, 800);
+    } catch (err) {
+      showToast(err.message || 'Failed to reorder inventory', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  }
+
+  function openBatchReorderModal() {
+    const checkedRows = Array.from(document.querySelectorAll('.low-stock-row')).filter(r => {
+      const cb = r.querySelector('.low-stock-cb');
+      return cb && cb.checked;
+    });
+
+    if (!checkedRows.length) {
+      showToast('Please select at least one item to reorder.', 'warning');
+      return;
+    }
+
+    const tbody = document.getElementById('batchTableBody');
+    tbody.innerHTML = '';
+
+    checkedRows.forEach(row => {
+      const variantId = row.getAttribute('data-variant-id');
+      const sku = row.getAttribute('data-sku');
+      const productName = row.getAttribute('data-product-name');
+      const size = row.getAttribute('data-size');
+      const color = row.getAttribute('data-color');
+      const stock = parseInt(row.getAttribute('data-stock')) || 0;
+      const cost = parseFloat(row.getAttribute('data-cost')) || 0;
+      const suggested = Math.max(20, 30 - stock);
+
+      const tr = document.createElement('tr');
+      tr.setAttribute('data-variant-id', variantId);
+      tr.innerHTML = `
+        <td>
+          <div class="fw-bold text-truncate" style="max-width: 180px;">${escapeHtml(productName)}</div>
+          <code class="small text-muted">${escapeHtml(sku)}</code>
+        </td>
+        <td><span class="badge bg-light text-dark border">${escapeHtml(size)} / ${escapeHtml(color)}</span></td>
+        <td><span class="badge ${stock === 0 ? 'bg-danger' : 'bg-warning text-dark'}">${stock} left</span></td>
+        <td>
+          <input type="number" min="1" class="form-control form-control-sm batch-qty-input" value="${suggested}" required oninput="calculateBatchTotal()">
+        </td>
+        <td>
+          <input type="number" step="0.01" min="0" class="form-control form-control-sm batch-cost-input" value="${cost.toFixed(2)}" required oninput="calculateBatchTotal()">
+        </td>
+        <td class="text-end fw-bold text-primary batch-row-subtotal">$0.00</td>
+        <td class="text-end">
+          <button type="button" class="btn btn-sm btn-icon-sm btn-outline-danger" onclick="removeBatchRow(this, '${variantId}')" title="Remove" aria-label="Remove">&times;</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById('batchItemsBadge').textContent = `${checkedRows.length} Items`;
+    document.getElementById('batchItemsCountText').textContent = `${checkedRows.length} variants selected`;
+    document.getElementById('batchNote').value = `Batch restock of ${checkedRows.length} low-stock apparel variants`;
+    document.getElementById('batchReceiveImmediately').checked = true;
+
+    calculateBatchTotal();
+
+    const modal = new bootstrap.Modal(document.getElementById('batchReorderModal'));
+    modal.show();
+  }
+
+  function removeBatchRow(btn, variantId) {
+    const row = btn.closest('tr');
+    if (row) row.remove();
+
+    const mainRow = document.querySelector(`.low-stock-row[data-variant-id="${variantId}"]`);
+    if (mainRow) {
+      const cb = mainRow.querySelector('.low-stock-cb');
+      if (cb) cb.checked = false;
+      onRowCheckboxChange();
+    }
+
+    const remainingRows = document.querySelectorAll('#batchTableBody tr');
+    document.getElementById('batchItemsBadge').textContent = `${remainingRows.length} Items`;
+    document.getElementById('batchItemsCountText').textContent = `${remainingRows.length} variants selected`;
+
+    if (remainingRows.length === 0) {
+      const modalEl = document.getElementById('batchReorderModal');
+      const modal = bootstrap.Modal.getInstance(modalEl);
+      if (modal) modal.hide();
+      showToast('All items removed from batch order.', 'info');
+      return;
+    }
+
+    calculateBatchTotal();
+  }
+
+  function calculateBatchTotal() {
+    let grandTotal = 0;
+    document.querySelectorAll('#batchTableBody tr').forEach(tr => {
+      const qty = parseFloat(tr.querySelector('.batch-qty-input')?.value) || 0;
+      const cost = parseFloat(tr.querySelector('.batch-cost-input')?.value) || 0;
+      const subtotal = qty * cost;
+      grandTotal += subtotal;
+      const subtotalEl = tr.querySelector('.batch-row-subtotal');
+      if (subtotalEl) subtotalEl.textContent = '$' + subtotal.toFixed(2);
+    });
+    document.getElementById('batchTotalDisplay').textContent = '$' + grandTotal.toFixed(2);
+  }
+
+  async function submitBatchReorder(e) {
+    e.preventDefault();
+    const btn = document.getElementById('batchSubmitBtn');
+    const supplierId = Number(document.getElementById('batchSupplierId').value);
+    const employeeId = Number(document.getElementById('batchEmployeeId').value);
+    const note = document.getElementById('batchNote').value.trim();
+    const receiveImmediately = document.getElementById('batchReceiveImmediately').checked;
+
+    const rows = document.querySelectorAll('#batchTableBody tr');
+    if (!rows.length) {
+      showToast('No items to order.', 'warning');
+      return;
+    }
+
+    const items = [];
+    for (const tr of rows) {
+      const variantId = Number(tr.getAttribute('data-variant-id'));
+      const quantity = Number(tr.querySelector('.batch-qty-input').value);
+      const costPrice = Number(tr.querySelector('.batch-cost-input').value);
+
+      if (!variantId || !quantity || quantity <= 0 || costPrice < 0) {
+        showToast('Please check all quantities and unit costs.', 'warning');
+        return;
+      }
+      items.push({ variantId, quantity, costPrice });
+    }
+
+    btn.disabled = true;
+    const originalText = btn.textContent;
+    btn.textContent = 'Processing...';
+
+    try {
+      const payload = {
+        supplierId,
+        employeeId,
+        note: note || `Batch restock of ${items.length} variants`,
+        receiveImmediately,
+        items
+      };
+
+      const res = await apiRequest('/api/purchases', 'POST', payload);
+      const modalEl = document.getElementById('batchReorderModal');
+      const modal = bootstrap.Modal.getInstance(modalEl);
+      if (modal) modal.hide();
+
+      if (receiveImmediately) {
+        showToast(`Batch restock successful! PO #${res.purchaseId} completed and stock added for ${items.length} items.`, 'success');
+      } else {
+        showToast(`Batch Purchase Order #${res.purchaseId} created in Pending status for ${items.length} items.`, 'success');
+      }
+
+      setTimeout(() => {
+        window.location.hash = '#tab-low-stock';
+        window.location.reload();
+      }, 800);
+    } catch (err) {
+      showToast(err.message || 'Failed to submit batch reorder', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  }
+
+  function openAdjustStockModal(variantId, sku, name, stock) {
+    const select = document.getElementById('adjVariantSelect');
+    if (variantId) {
+      select.value = variantId;
+    }
+    onAdjustVariantChanged();
+    if (stock !== undefined && stock !== null && stock !== '') {
+      document.getElementById('adjNewQuantity').value = stock;
+      updateAdjustDelta();
+    }
+    const modal = new bootstrap.Modal(document.getElementById('adjustStockModal'));
+    modal.show();
+  }
+
+  function onAdjustVariantChanged() {
+    const select = document.getElementById('adjVariantSelect');
+    const selectedOption = select.options[select.selectedIndex];
+    const nameEl = document.getElementById('adjVariantName');
+    const skuEl = document.getElementById('adjVariantSku');
+    const badgeEl = document.getElementById('adjCurrentStockBadge');
+    const newQtyInput = document.getElementById('adjNewQuantity');
+
+    if (!selectedOption || !selectedOption.value) {
+      nameEl.textContent = 'Select a variant above';
+      skuEl.textContent = 'SKU: -';
+      badgeEl.textContent = '-';
+      newQtyInput.value = '';
+      updateAdjustDelta();
+      return;
+    }
+
+    const sku = selectedOption.getAttribute('data-sku') || '';
+    const name = selectedOption.getAttribute('data-name') || '';
+    const stock = parseInt(selectedOption.getAttribute('data-stock'), 10) || 0;
+
+    nameEl.textContent = name;
+    skuEl.textContent = `SKU: ${sku}`;
+    badgeEl.textContent = `${stock} units`;
+    if (!newQtyInput.value) {
+      newQtyInput.value = stock;
+    }
+    updateAdjustDelta();
+  }
+
+  function updateAdjustDelta() {
+    const select = document.getElementById('adjVariantSelect');
+    const selectedOption = select.options[select.selectedIndex];
+    const currentStock = selectedOption && selectedOption.value ? (parseInt(selectedOption.getAttribute('data-stock'), 10) || 0) : 0;
+    const newQtyVal = document.getElementById('adjNewQuantity').value;
+    const displayEl = document.getElementById('adjDeltaDisplay');
+
+    if (newQtyVal === '' || isNaN(newQtyVal)) {
+      displayEl.textContent = '0 units';
+      displayEl.className = 'form-control form-control-sm bg-light fw-bold';
+      return;
+    }
+
+    const newQty = parseInt(newQtyVal, 10);
+    const delta = newQty - currentStock;
+
+    if (delta > 0) {
+      displayEl.textContent = `+${delta} units (Increase)`;
+      displayEl.className = 'form-control form-control-sm fw-bold text-success bg-light';
+    } else if (delta < 0) {
+      displayEl.textContent = `${delta} units (Reduction)`;
+      displayEl.className = 'form-control form-control-sm fw-bold text-danger bg-light';
+    } else {
+      displayEl.textContent = '0 units (No Change)';
+      displayEl.className = 'form-control form-control-sm bg-light fw-bold text-muted';
+    }
+  }
+
+  async function submitStockAdjustment(e) {
+    e.preventDefault();
+    const btn = document.getElementById('adjSubmitBtn');
+    const variantId = document.getElementById('adjVariantSelect').value;
+    const newQuantity = document.getElementById('adjNewQuantity').value;
+    const reason = document.getElementById('adjReason').value.trim();
+
+    if (!variantId) {
+      showToast('Please select a product variant to adjust.', 'warning');
+      return;
+    }
+    if (newQuantity === '' || Number(newQuantity) < 0) {
+      showToast('Please enter a valid non-negative stock quantity.', 'warning');
+      return;
+    }
+    if (!reason) {
+      showToast('Please provide an adjustment reason.', 'warning');
+      return;
+    }
+
+    btn.disabled = true;
+    const originalText = btn.textContent;
+    btn.textContent = 'Adjusting...';
+
+    try {
+      const payload = {
+        variantId: Number(variantId),
+        newQuantity: Number(newQuantity),
+        reason: reason
+      };
+
+      const res = await apiRequest('/api/stock/adjust', 'POST', payload);
+      const modalEl = document.getElementById('adjustStockModal');
+      const modal = bootstrap.Modal.getInstance(modalEl);
+      if (modal) modal.hide();
+
+      showToast(`Stock updated successfully! New quantity for SKU ${res.sku}: ${res.newStock} units.`, 'success');
+      setTimeout(() => {
+        window.location.reload();
+      }, 700);
+    } catch (err) {
+      showToast(err.message || 'Failed to adjust stock', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  }
+</script>
+</body>
+</html>

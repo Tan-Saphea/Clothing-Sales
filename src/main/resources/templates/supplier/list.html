@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/nav :: head('Suppliers')}"></head>
+<body>
+<div class="app-wrapper">
+    <aside th:replace="~{fragments/nav :: sidebar('suppliers')}"></aside>
+
+    <div class="main-wrapper">
+        <header th:replace="~{fragments/nav :: topbar('Suppliers', 'Supplier Directory')}"></header>
+
+        <main class="content-body">
+            <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+                <div>
+                    <h3 class="fw-bold mb-1" style="color: var(--color-primary-navy);">Suppliers & Vendors</h3>
+                    <p class="text-muted mb-0">Manage wholesale vendors, manufacturer contacts, and purchase origins.</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <div class="search-box">
+                        
+                        <input type="text" id="supplierSearch" class="form-control" placeholder="Search suppliers...">
+                    </div>
+                    <button class="btn btn-brand-primary" data-bs-toggle="modal" data-bs-target="#addSupplierModal">
+                         Add Supplier
+                    </button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="table-pro" id="suppliersTable">
+                        <thead>
+                        <tr>
+                            <th style="width: 80px;">ID</th>
+                            <th>Supplier Name</th>
+                            <th>Phone</th>
+                            <th>Email</th>
+                            <th>Address</th>
+                            <th>Status</th>
+                            <th style="width: 120px;" class="text-end">Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:if="${#lists.isEmpty(suppliers)}">
+                            <td colspan="7" class="text-center text-muted py-4">No suppliers found.</td>
+                        </tr>
+                        <tr th:each="s : ${suppliers}" th:id="'sup-row-' + ${s.supplierId}">
+                            <td class="fw-bold text-muted" th:text="'#' + ${s.supplierId}">#1</td>
+                            <td class="fw-bold text-primary" th:id="'sup-name-' + ${s.supplierId}" th:text="${s.supplierName}">Garment Co</td>
+                            <td th:id="'sup-phone-' + ${s.supplierId}" th:text="${s.phone ?: 'N/A'}">012345678</td>
+                            <td th:id="'sup-email-' + ${s.supplierId}" th:text="${s.email ?: 'N/A'}">vendor@textile.com</td>
+                            <td class="text-muted small" th:id="'sup-addr-' + ${s.supplierId}" th:text="${s.address ?: 'N/A'}">Phnom Penh</td>
+                            <td>
+                                <span th:if="${s.status == 'ACTIVE'}" class="badge-status active" th:id="'sup-status-' + ${s.supplierId}">Active</span>
+                                <span th:unless="${s.status == 'ACTIVE'}" class="badge-status inactive" th:id="'sup-status-' + ${s.supplierId}" th:text="${s.status ?: 'INACTIVE'}">Inactive</span>
+                            </td>
+                            <td class="text-end">
+                                <div class="d-flex justify-content-end gap-1">
+                                    <button class="btn btn-sm btn-icon-sm btn-outline-primary"
+                                            title="Edit Supplier"
+                                            th:onclick="'openEditSupplierModal(' + ${s.supplierId} + ')'">
+                                        Edit
+                                    </button>
+                                    <button class="btn btn-sm btn-icon-sm btn-outline-danger"
+                                            title="Delete Supplier"
+                                            th:onclick="'deleteSupplier(' + ${s.supplierId} + ')'">
+                                        Delete
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- Add Supplier Modal -->
+<div class="modal fade" id="addSupplierModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header-brand">
+                <h5 class="modal-title">
+                     Add New Supplier
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form onsubmit="submitCreateSupplier(event)">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Supplier Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="newSupName" required placeholder="e.g. Silk Fabric Wholesale">
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Phone</label>
+                            <input type="text" class="form-control" id="newSupPhone" placeholder="012 345 678">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" id="newSupEmail" placeholder="contact@supplier.com">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Address</label>
+                        <textarea class="form-control" id="newSupAddress" rows="2" placeholder="Building, Street, City"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Status</label>
+                        <select class="form-select" id="newSupStatus">
+                            <option value="ACTIVE" selected>ACTIVE</option>
+                            <option value="INACTIVE">INACTIVE</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm btn-brand-primary">
+                         Create Supplier
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Supplier Modal -->
+<div class="modal fade" id="editSupplierModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header-brand">
+                <h5 class="modal-title">
+                     Edit Supplier
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form onsubmit="submitEditSupplier(event)">
+                <input type="hidden" id="editSupId">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Supplier Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="editSupName" required>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Phone</label>
+                            <input type="text" class="form-control" id="editSupPhone">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" id="editSupEmail">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Address</label>
+                        <textarea class="form-control" id="editSupAddress" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Status</label>
+                        <select class="form-select" id="editSupStatus">
+                            <option value="ACTIVE">ACTIVE</option>
+                            <option value="INACTIVE">INACTIVE</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm btn-brand-primary">
+                         Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/nav :: dbModal}"></div>
+<div th:replace="~{fragments/nav :: scripts}"></div>
+
+<script>
+  setupTableSearch('supplierSearch', 'suppliersTable');
+
+  async function submitCreateSupplier(e) {
+    e.preventDefault();
+    const supplierName = document.getElementById('newSupName').value.trim();
+    const phone = document.getElementById('newSupPhone').value.trim();
+    const email = document.getElementById('newSupEmail').value.trim();
+    const address = document.getElementById('newSupAddress').value.trim();
+    const status = document.getElementById('newSupStatus').value;
+
+    try {
+      await apiRequest('/api/suppliers', 'POST', { supplierName, phone, email, address, status });
+      showToast('Supplier created successfully!', 'success');
+      bootstrap.Modal.getInstance(document.getElementById('addSupplierModal')).hide();
+      setTimeout(() => window.location.reload(), 600);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  function openEditSupplierModal(id) {
+    const name = document.getElementById('sup-name-' + id).innerText;
+    const phone = document.getElementById('sup-phone-' + id).innerText;
+    const email = document.getElementById('sup-email-' + id).innerText;
+    const addr = document.getElementById('sup-addr-' + id).innerText;
+    const status = document.getElementById('sup-status-' + id).innerText.trim();
+
+    document.getElementById('editSupId').value = id;
+    document.getElementById('editSupName').value = name;
+    document.getElementById('editSupPhone').value = phone === 'N/A' ? '' : phone;
+    document.getElementById('editSupEmail').value = email === 'N/A' ? '' : email;
+    document.getElementById('editSupAddress').value = addr === 'N/A' ? '' : addr;
+    document.getElementById('editSupStatus').value = status.toUpperCase() === 'ACTIVE' ? 'ACTIVE' : 'INACTIVE';
+
+    const modal = new bootstrap.Modal(document.getElementById('editSupplierModal'));
+    modal.show();
+  }
+
+  async function submitEditSupplier(e) {
+    e.preventDefault();
+    const id = document.getElementById('editSupId').value;
+    const supplierName = document.getElementById('editSupName').value.trim();
+    const phone = document.getElementById('editSupPhone').value.trim();
+    const email = document.getElementById('editSupEmail').value.trim();
+    const address = document.getElementById('editSupAddress').value.trim();
+    const status = document.getElementById('editSupStatus').value;
+
+    try {
+      await apiRequest(`/api/suppliers/${id}`, 'PUT', { supplierName, phone, email, address, status });
+      showToast('Supplier updated successfully!', 'success');
+      bootstrap.Modal.getInstance(document.getElementById('editSupplierModal')).hide();
+      setTimeout(() => window.location.reload(), 600);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  async function deleteSupplier(id) {
+    if (!confirm(`Are you sure you want to delete Supplier #${id}?`)) return;
+    try {
+      await apiRequest(`/api/suppliers/${id}`, 'DELETE');
+      showToast('Supplier deleted successfully.', 'success');
+      const row = document.getElementById('sup-row-' + id);
+      if (row) row.remove();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+</script>
+</body>
+</html>
