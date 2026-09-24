@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/nav :: head('Products')}"></head>
+<head>
+    <th:block th:replace="~{fragments/nav :: head('Products')}"></th:block>
+    <!-- JsBarcode for High-Resolution Vector Retail Barcode Label Generation -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+</head>
 <body>
 <div class="app-wrapper">
     <aside th:replace="~{fragments/nav :: sidebar('products')}"></aside>
@@ -28,13 +32,18 @@
                         </button>
                     </div>
                     <div class="search-box">
-                        
                         <input type="text" id="productSearch" class="form-control" placeholder="Search products...">
                     </div>
                     <select id="categoryFilter" class="form-select" style="width: auto;" onchange="filterByCategory()">
                         <option value="">All Categories</option>
                         <option th:each="cat : ${categories}" th:value="${cat.categoryId}" th:text="${cat.categoryName}"></option>
                     </select>
+                    <button type="button" class="btn btn-outline-dark d-flex align-items-center gap-1" onclick="openBarcodeGeneratorModal()" title="Generate & Print Apparel Barcode Labels">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M1.5 1a.5.5 0 0 0-.5.5v3a.5.5 0 0 1-1 0v-3A1.5 1.5 0 0 1 1.5 0h3a.5.5 0 0 1 0 1zM11 .5a.5.5 0 0 1 .5-.5h3A1.5 1.5 0 0 1 16 1.5v3a.5.5 0 0 1-1 0v-3a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 1-.5-.5M.5 11a.5.5 0 0 1 .5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 1 0 1h-3A1.5 1.5 0 0 1 0 14.5v-3a.5.5 0 0 1 .5-.5m15 0a.5.5 0 0 1 .5.5v3a1.5 1.5 0 0 1-1.5 1.5h-3a.5.5 0 0 1 0-1h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 1 .5-.5M3 4.5a.5.5 0 0 1 1 0v7a.5.5 0 0 1-1 0zm2 0a.5.5 0 0 1 1 0v7a.5.5 0 0 1-1 0zm3 0a.5.5 0 0 1 1 0v7a.5.5 0 0 1-1 0zm2 0a.5.5 0 0 1 1 0v7a.5.5 0 0 1-1 0zm2 0a.5.5 0 0 1 1 0v7a.5.5 0 0 1-1 0z"/>
+                        </svg>
+                        <span>Barcode Labels</span>
+                    </button>
                     <button class="btn btn-brand-primary" data-bs-toggle="modal" data-bs-target="#addProductModal">
                          Add Product
                     </button>
@@ -337,6 +346,127 @@
         </div>
     </div>
 </div>
+
+<!-- Barcode Label Generator Modal -->
+<div class="modal fade" id="barcodeGeneratorModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content shadow border-0">
+            <div class="modal-header-brand">
+                <div>
+                    <h5 class="modal-title mb-0">Apparel Barcode Label Generator</h5>
+                    <div class="small text-muted">Generate, customize, and print retail price tags and barcode stickers (Code 128)</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3">
+                <div class="row g-3">
+                    <!-- Left: Control & Customization Panel -->
+                    <div class="col-lg-4 border-end pe-lg-3">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold mb-1" for="barcodeProductSelect">Product</label>
+                            <select id="barcodeProductSelect" class="form-select form-select-sm" onchange="onBarcodeProductSelectChange()">
+                                <option value="all">All Products (All Active Variants)</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="form-label small fw-bold mb-0">Variants to Print</label>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" onclick="toggleAllBarcodeVariants(true)">Select All</button>
+                                    <span class="text-muted small">&bull;</span>
+                                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" onclick="toggleAllBarcodeVariants(false)">Clear</button>
+                                </div>
+                            </div>
+                            <div id="barcodeVariantCheckboxList" class="border rounded p-2 bg-light" style="max-height: 180px; overflow-y: auto;">
+                                <div class="text-muted small text-center py-3">Loading variants...</div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold mb-1">Label Format</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="barcodeFormat" id="fmtHangtag" value="hangtag" checked onchange="renderBarcodePreview()">
+                                <label class="btn btn-sm btn-outline-secondary" for="fmtHangtag">Hang Tag</label>
+
+                                <input type="radio" class="btn-check" name="barcodeFormat" id="fmtSticker" value="sticker" onchange="renderBarcodePreview()">
+                                <label class="btn btn-sm btn-outline-secondary" for="fmtSticker">Sticker</label>
+
+                                <input type="radio" class="btn-check" name="barcodeFormat" id="fmtCompact" value="compact" onchange="renderBarcodePreview()">
+                                <label class="btn btn-sm btn-outline-secondary" for="fmtCompact">Compact</label>
+                            </div>
+                        </div>
+
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label class="form-label small fw-bold mb-1" for="barcodeLabelCopies">Copies / Label</label>
+                                <input type="number" id="barcodeLabelCopies" class="form-control form-control-sm" value="1" min="1" max="100" onchange="renderBarcodePreview()">
+                            </div>
+                            <div class="col-6 d-flex align-items-end">
+                                <button type="button" class="btn btn-sm btn-outline-secondary w-100" onclick="setCopiesToCurrentStock()" title="Set quantity based on on-hand stock">
+                                    Match Stock
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="p-2 border rounded bg-white">
+                            <div class="fw-bold small mb-2 text-dark">Display Fields</div>
+                            <div class="form-check form-check-sm mb-1">
+                                <input class="form-check-input" type="checkbox" id="chkShowBrand" checked onchange="renderBarcodePreview()">
+                                <label class="form-check-label small" for="chkShowBrand">Store Brand Name</label>
+                            </div>
+                            <div class="form-check form-check-sm mb-1">
+                                <input class="form-check-input" type="checkbox" id="chkShowTitle" checked onchange="renderBarcodePreview()">
+                                <label class="form-check-label small" for="chkShowTitle">Product Name</label>
+                            </div>
+                            <div class="form-check form-check-sm mb-1">
+                                <input class="form-check-input" type="checkbox" id="chkShowSpec" checked onchange="renderBarcodePreview()">
+                                <label class="form-check-label small" for="chkShowSpec">Size &amp; Color</label>
+                            </div>
+                            <div class="form-check form-check-sm">
+                                <input class="form-check-input" type="checkbox" id="chkShowPrice" checked onchange="renderBarcodePreview()">
+                                <label class="form-check-label small" for="chkShowPrice">Retail Price ($)</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Live Interactive Label Preview -->
+                    <div class="col-lg-8 ps-lg-3 d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="fw-bold text-dark small">Live Print Preview</span>
+                                <span id="barcodePreviewCountBadge" class="badge bg-secondary" style="font-size: 11px;">0 labels</span>
+                            </div>
+                            <div class="small text-muted">Direct vector SVG (300+ DPI Crisp Scan)</div>
+                        </div>
+
+                        <div id="barcodePreviewSheet" class="barcode-preview-area flex-grow-1">
+                            <div class="text-center text-muted py-5 w-100">Select product variants on the left to generate barcode labels.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer d-flex justify-content-between py-2 px-3 bg-light">
+                <div class="small text-muted">
+                    Compatible with standard A4 sticker sheets and direct thermal label printers.
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-sm btn-brand-primary d-flex align-items-center gap-1" onclick="printBarcodeLabels()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M2.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1"/>
+                            <path d="M5 1a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2zM4 3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2H4zm1 5a2 2 0 0 0-2 2v1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v-1a2 2 0 0 0-2-2zm7 2v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1"/>
+                        </svg>
+                        <span>Print Labels</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Print Container (Hidden on screen, populated dynamically for printing) -->
+<div id="barcodePrintContainer" style="display: none;"></div>
 
 <div th:replace="~{fragments/nav :: dbModal}"></div>
 <div th:replace="~{fragments/nav :: scripts}"></div>
@@ -747,6 +877,9 @@
             <span class="badge ${v.stockQty <= 10 ? 'bg-danger' : 'bg-success'}">${Number(v.stockQty || 0)} in stock</span>
           </td>
           <td class="text-end">
+            <button class="btn btn-sm btn-icon-sm btn-outline-dark me-1" onclick="openBarcodeGeneratorModal(document.getElementById('currentVariantProductId').value, ${v.variantId})" title="Print Barcode Label">
+              Barcode
+            </button>
             <button class="btn btn-sm btn-icon-sm btn-outline-danger" onclick="deleteVariant(${v.variantId})" title="Delete Variant">
               Delete
             </button>
@@ -803,6 +936,234 @@
       showToast(err.message, 'error');
     }
   }
+
+  // ==========================================
+  // Barcode Label Generator Engine
+  // ==========================================
+  let barcodeAllVariants = [];
+
+  async function openBarcodeGeneratorModal(targetProductId = null, targetVariantId = null) {
+    const modalEl = document.getElementById('barcodeGeneratorModal');
+    if (!modalEl) return;
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+
+    await loadBarcodeProductCatalog(targetProductId, targetVariantId);
+  }
+
+  async function loadBarcodeProductCatalog(targetProductId, targetVariantId) {
+    const select = document.getElementById('barcodeProductSelect');
+    try {
+      barcodeAllVariants = await apiRequest('/api/variants');
+      
+      const prodMap = new Map();
+      barcodeAllVariants.forEach(v => {
+        if (!prodMap.has(v.productId)) {
+          prodMap.set(v.productId, v.productName || 'Product #' + v.productId);
+        }
+      });
+
+      if (select) {
+        let opts = '<option value="all">All Products (All Active Variants)</option>';
+        prodMap.forEach((name, id) => {
+          opts += `<option value="${id}">${escapeHtml(name)}</option>`;
+        });
+        select.innerHTML = opts;
+
+        if (targetProductId) {
+          select.value = String(targetProductId);
+        } else {
+          select.value = 'all';
+        }
+      }
+
+      onBarcodeProductSelectChange(targetVariantId);
+    } catch (e) {
+      console.error('Failed to load variants for barcode generator', e);
+      showToast('Could not load products for barcode printing', 'error');
+    }
+  }
+
+  function onBarcodeProductSelectChange(targetVariantId = null) {
+    const select = document.getElementById('barcodeProductSelect');
+    const prodId = select?.value || 'all';
+
+    let relevantVariants = [];
+    if (prodId === 'all') {
+      relevantVariants = barcodeAllVariants;
+    } else {
+      relevantVariants = barcodeAllVariants.filter(v => String(v.productId) === String(prodId));
+    }
+
+    const listContainer = document.getElementById('barcodeVariantCheckboxList');
+    if (!listContainer) return;
+
+    if (!relevantVariants.length) {
+      listContainer.innerHTML = '<div class="text-muted small text-center py-3">No variants found.</div>';
+      renderBarcodePreview();
+      return;
+    }
+
+    listContainer.innerHTML = relevantVariants.map(v => {
+      const isChecked = targetVariantId ? String(v.variantId) === String(targetVariantId) : true;
+      return `
+        <div class="form-check form-check-sm mb-1">
+          <input class="form-check-input barcode-variant-chk" type="checkbox" value="${v.variantId}" id="chkVar_${v.variantId}" ${isChecked ? 'checked' : ''} onchange="renderBarcodePreview()">
+          <label class="form-check-label small d-flex justify-content-between" for="chkVar_${v.variantId}">
+            <span><strong>${escapeHtml(v.sku)}</strong> &bull; ${escapeHtml(v.sizeName || '')} ${escapeHtml(v.colorName || '')}</span>
+            <span class="text-muted">$${Number(v.salePrice || 0).toFixed(2)} (${v.stockQty || 0} in stock)</span>
+          </label>
+        </div>
+      `;
+    }).join('');
+
+    renderBarcodePreview();
+  }
+
+  function toggleAllBarcodeVariants(selectState) {
+    document.querySelectorAll('.barcode-variant-chk').forEach(chk => {
+      chk.checked = selectState;
+    });
+    renderBarcodePreview();
+  }
+
+  function setCopiesToCurrentStock() {
+    renderBarcodePreview(true);
+    showToast('Label quantities matched to current on-hand stock!', 'info');
+  }
+
+  function renderBarcodePreview(matchStock = false) {
+    const previewArea = document.getElementById('barcodePreviewSheet');
+    const badge = document.getElementById('barcodePreviewCountBadge');
+    if (!previewArea) return;
+
+    const selectedChks = Array.from(document.querySelectorAll('.barcode-variant-chk:checked'));
+    if (!selectedChks.length) {
+      previewArea.innerHTML = '<div class="text-center text-muted py-5 w-100">No variants selected. Check one or more variants to preview labels.</div>';
+      if (badge) badge.textContent = '0 labels';
+      return;
+    }
+
+    const format = document.querySelector('input[name="barcodeFormat"]:checked')?.value || 'hangtag';
+    const baseCopies = Math.max(1, parseInt(document.getElementById('barcodeLabelCopies')?.value || '1', 10));
+    const showBrand = document.getElementById('chkShowBrand')?.checked ?? true;
+    const showTitle = document.getElementById('chkShowTitle')?.checked ?? true;
+    const showSpec = document.getElementById('chkShowSpec')?.checked ?? true;
+    const showPrice = document.getElementById('chkShowPrice')?.checked ?? true;
+
+    const selectedVariantIds = new Set(selectedChks.map(c => Number(c.value)));
+    const variantsToRender = barcodeAllVariants.filter(v => selectedVariantIds.has(v.variantId));
+
+    let html = '';
+    let totalLabelCount = 0;
+    const barcodeRenderQueue = [];
+
+    variantsToRender.forEach((v) => {
+      const copies = matchStock ? Math.max(1, Number(v.stockQty || 1)) : baseCopies;
+      const sku = v.sku || 'SKU';
+      const prodName = v.productName || 'Apparel';
+      const spec = [v.sizeName, v.colorName].filter(Boolean).join(' / ');
+      const price = '$' + Number(v.salePrice || 0).toFixed(2);
+
+      for (let i = 0; i < copies; i++) {
+        const svgId = `barcode-svg-${v.variantId}-${i}`;
+        totalLabelCount++;
+
+        if (format === 'hangtag') {
+          html += `
+            <div class="barcode-label-hangtag">
+              <div class="hangtag-hole"></div>
+              ${showBrand ? '<div class="brand-title">Clothing Co.</div>' : ''}
+              ${showTitle ? `<div class="product-title" title="${escapeHtml(prodName)}">${escapeHtml(prodName)}</div>` : ''}
+              ${showSpec && spec ? `<div class="variant-spec">${escapeHtml(spec)}</div>` : ''}
+              <svg id="${svgId}" class="barcode-svg"></svg>
+              ${showPrice ? `<div class="price-tag">${price}</div>` : ''}
+            </div>
+          `;
+        } else if (format === 'sticker') {
+          html += `
+            <div class="barcode-label-sticker">
+              <div class="d-flex justify-content-between w-100 align-items-center">
+                ${showBrand ? '<span class="brand-mini">Clothing Co.</span>' : '<span></span>'}
+                ${showSpec && spec ? `<span class="badge bg-light text-dark border py-0" style="font-size: 8px;">${escapeHtml(spec)}</span>` : ''}
+              </div>
+              ${showTitle ? `<div class="item-mini" title="${escapeHtml(prodName)}">${escapeHtml(prodName)}</div>` : ''}
+              <svg id="${svgId}" class="barcode-svg"></svg>
+              <div class="footer-line">
+                <span>SKU: ${escapeHtml(sku)}</span>
+                ${showPrice ? `<span class="fw-bold">${price}</span>` : ''}
+              </div>
+            </div>
+          `;
+        } else {
+          html += `
+            <div class="barcode-label-compact">
+              ${showTitle ? `<div class="item-mini" style="font-size: 9px;">${escapeHtml(prodName)}</div>` : ''}
+              <svg id="${svgId}" class="barcode-svg"></svg>
+              <div class="d-flex justify-content-between w-100 mt-1" style="font-size: 8px;">
+                <span>${escapeHtml(spec || sku)}</span>
+                ${showPrice ? `<span class="fw-bold">${price}</span>` : ''}
+              </div>
+            </div>
+          `;
+        }
+
+        barcodeRenderQueue.push({ svgId, sku, format });
+      }
+    });
+
+    previewArea.innerHTML = html;
+    if (badge) badge.textContent = `${totalLabelCount} label${totalLabelCount > 1 ? 's' : ''}`;
+
+    setTimeout(() => {
+      barcodeRenderQueue.forEach(item => {
+        try {
+          const el = document.getElementById(item.svgId);
+          if (el && typeof JsBarcode !== 'undefined') {
+            JsBarcode(el, item.sku, {
+              format: "CODE128",
+              width: item.format === 'hangtag' ? 1.6 : 1.4,
+              height: item.format === 'hangtag' ? 40 : (item.format === 'sticker' ? 32 : 25),
+              displayValue: true,
+              fontSize: 10,
+              font: "monospace",
+              margin: 2,
+              lineColor: "#000"
+            });
+          }
+        } catch (err) {
+          console.warn('JsBarcode render failed for', item.sku, err);
+        }
+      });
+    }, 50);
+  }
+
+  function printBarcodeLabels() {
+    const previewSheet = document.getElementById('barcodePreviewSheet');
+    const printContainer = document.getElementById('barcodePrintContainer');
+    if (!previewSheet || !printContainer) return;
+
+    if (!previewSheet.children.length || previewSheet.querySelector('.text-center')) {
+      showToast('Select variants to print first.', 'warning');
+      return;
+    }
+
+    printContainer.innerHTML = previewSheet.innerHTML;
+    document.body.classList.add('printing-barcodes');
+
+    window.print();
+
+    setTimeout(() => {
+      document.body.classList.remove('printing-barcodes');
+      printContainer.innerHTML = '';
+    }, 1500);
+  }
+
+  window.addEventListener('afterprint', () => {
+    document.body.classList.remove('printing-barcodes');
+    const printContainer = document.getElementById('barcodePrintContainer');
+    if (printContainer) printContainer.innerHTML = '';
+  });
 </script>
 </body>
 </html>

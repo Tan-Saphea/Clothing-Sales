@@ -4,6 +4,8 @@
     <th:block th:replace="~{fragments/nav :: head('Sales')}"></th:block>
     <!-- html5-qrcode for Webcam / Device Camera Barcode Scanning -->
     <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <!-- JsBarcode for Barcode Label Display -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 </head>
 <body>
 <div class="app-wrapper">
@@ -362,6 +364,33 @@
                     <button type="submit" class="btn btn-sm btn-brand-primary" id="btnSubmitQuickCust">Save &amp; Select</button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Barcode Preview Modal (Embedded in POS) -->
+<div class="modal fade" id="quickBarcodeModal" tabindex="-1" aria-hidden="true" style="z-index: 1070;">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content shadow border-0">
+            <div class="modal-header-brand py-2 px-3">
+                <h6 class="modal-title mb-0 fw-bold">Product Barcode</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3 text-center">
+                <div class="fw-bold text-dark mb-1" id="qbProdTitle">Apparel Title</div>
+                <div class="text-muted small mb-2" id="qbProdSpec">Size &bull; Color</div>
+                <div class="p-2 border rounded bg-white mb-2 shadow-sm d-flex justify-content-center align-items-center" style="min-height: 85px;">
+                    <svg id="qbBarcodeSvg" style="max-width: 100%;"></svg>
+                </div>
+                <div class="d-flex justify-content-between align-items-center small text-muted px-1">
+                    <span>Price: <strong class="text-dark" id="qbProdPrice">$0.00</strong></span>
+                    <span id="qbProdStock" class="badge bg-light text-dark border">0 in stock</span>
+                </div>
+            </div>
+            <div class="modal-footer py-2 px-3 bg-light d-flex justify-content-between">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-sm btn-brand-primary" id="qbAddToCartBtn">Add to Cart</button>
+            </div>
         </div>
     </div>
 </div>
@@ -873,7 +902,12 @@
           <div class="pos-card-body">
             <div class="pos-card-title">${escapeHtml(v.productName || 'Apparel')}</div>
             <div class="pos-card-spec">${escapeHtml(v.sizeName || '')} &bull; ${escapeHtml(v.colorName || '')}</div>
-            <div class="pos-card-sku">${escapeHtml(v.sku)}</div>
+            <div class="pos-card-sku d-flex justify-content-between align-items-center">
+              <span>${escapeHtml(v.sku)}</span>
+              <span class="badge bg-light text-muted border py-0 px-1" style="font-size: 9px; cursor: pointer;" onclick="event.stopPropagation(); showQuickBarcodeModal(${v.variantId})" title="View Barcode / Test Scan">
+                Barcode
+              </span>
+            </div>
             <div class="pos-card-footer">
               <span class="pos-card-price">$${price.toFixed(2)}</span>
               ${stockBadgeHtml}
@@ -882,6 +916,48 @@
         </div>
       `;
     }).join('');
+  }
+
+  function showQuickBarcodeModal(variantId) {
+    const v = masterVariants.find(item => item.variantId === variantId);
+    if (!v) return;
+
+    document.getElementById('qbProdTitle').textContent = v.productName || 'Apparel';
+    document.getElementById('qbProdSpec').textContent = `${v.sizeName || ''} • ${v.colorName || ''} | SKU: ${v.sku}`;
+    document.getElementById('qbProdPrice').textContent = '$' + Number(v.salePrice || 0).toFixed(2);
+    document.getElementById('qbProdStock').textContent = `${v.stockQty || 0} in stock`;
+
+    const svgEl = document.getElementById('qbBarcodeSvg');
+    if (svgEl && typeof JsBarcode !== 'undefined') {
+      try {
+        JsBarcode(svgEl, v.sku, {
+          format: "CODE128",
+          width: 2,
+          height: 48,
+          displayValue: true,
+          fontSize: 12,
+          font: "monospace",
+          margin: 4,
+          lineColor: "#000"
+        });
+      } catch (err) {
+        console.warn('Barcode render error', err);
+      }
+    }
+
+    const addBtn = document.getElementById('qbAddToCartBtn');
+    if (addBtn) {
+      addBtn.onclick = () => {
+        pickVariant(v.variantId);
+        playBeepSound();
+        bootstrap.Modal.getInstance(document.getElementById('quickBarcodeModal'))?.hide();
+      };
+    }
+
+    const modalEl = document.getElementById('quickBarcodeModal');
+    if (modalEl) {
+      bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
   }
 
   function pickVariant(variantId) {

@@ -1529,3 +1529,184 @@ i.bi {
     box-shadow: none !important;
   }
 }
+
+/* Barcode Label Generator Styles */
+.barcode-preview-area {
+  background: var(--soft-cream, #ece8dd);
+  border: 1px solid var(--line, #d9d5cb);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  max-height: 520px;
+  overflow-y: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+/* Hang Tag Format (55mm x 85mm portrait ratio) */
+.barcode-label-hangtag {
+  width: 170px;
+  min-height: 250px;
+  background: #ffffff;
+  color: #111111;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  padding: 12px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  page-break-inside: avoid;
+}
+.barcode-label-hangtag .hangtag-hole {
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid #aaa;
+  border-radius: 50%;
+  margin-bottom: 6px;
+  background: #fdfdfd;
+}
+.barcode-label-hangtag .brand-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #555;
+  margin-bottom: 2px;
+}
+.barcode-label-hangtag .product-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #111;
+  line-height: 1.2;
+  margin-bottom: 4px;
+  max-height: 28px;
+  overflow: hidden;
+}
+.barcode-label-hangtag .variant-spec {
+  font-size: 10px;
+  color: #555;
+  background: #f0f0f0;
+  padding: 1px 6px;
+  border-radius: 3px;
+  margin-bottom: 6px;
+}
+.barcode-label-hangtag svg.barcode-svg {
+  width: 100%;
+  height: 48px;
+  max-width: 150px;
+}
+.barcode-label-hangtag .price-tag {
+  font-size: 15px;
+  font-weight: 700;
+  color: #000;
+  margin-top: auto;
+  padding-top: 4px;
+  border-top: 1px dashed #ccc;
+  width: 100%;
+}
+
+/* Adhesive Sticker Format (Landscape 50mm x 30mm ratio) */
+.barcode-label-sticker {
+  width: 185px;
+  height: 110px;
+  background: #ffffff;
+  color: #111111;
+  border: 1px dashed #bbb;
+  border-radius: 4px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  text-align: center;
+  position: relative;
+  page-break-inside: avoid;
+}
+.barcode-label-sticker .brand-mini {
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #666;
+  letter-spacing: 0.05em;
+}
+.barcode-label-sticker .item-mini {
+  font-size: 10px;
+  font-weight: 600;
+  color: #111;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.barcode-label-sticker svg.barcode-svg {
+  width: 100%;
+  height: 38px;
+  max-width: 165px;
+}
+.barcode-label-sticker .footer-line {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 9px;
+  font-weight: 600;
+  border-top: 1px solid #eee;
+  padding-top: 2px;
+}
+
+/* Compact Accessory Format (40mm x 20mm ratio) */
+.barcode-label-compact {
+  width: 140px;
+  height: 85px;
+  background: #ffffff;
+  color: #111111;
+  border: 1px dotted #ccc;
+  border-radius: 3px;
+  padding: 4px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  page-break-inside: avoid;
+}
+.barcode-label-compact svg.barcode-svg {
+  width: 100%;
+  height: 32px;
+  max-width: 125px;
+}
+
+/* Print Rules for Barcodes */
+@media print {
+  body.printing-barcodes * {
+    visibility: hidden;
+  }
+  body.printing-barcodes #barcodePrintContainer,
+  body.printing-barcodes #barcodePrintContainer * {
+    visibility: visible;
+  }
+  body.printing-barcodes #barcodePrintContainer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 10px;
+    background: transparent !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+  body.printing-barcodes .barcode-label-hangtag,
+  body.printing-barcodes .barcode-label-sticker,
+  body.printing-barcodes .barcode-label-compact {
+    box-shadow: none !important;
+    border: 1px solid #000 !important;
+    page-break-inside: avoid !important;
+  }
+}
+
