@@ -52,7 +52,7 @@ class SecurityHardeningTest {
                 .andExpect(status().isOk())
                 .andExpect(header().string("X-Frame-Options", "DENY"))
                 .andExpect(header().string("Referrer-Policy", "strict-origin-when-cross-origin"))
-                .andExpect(header().string("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()"))
+                .andExpect(header().string("Permissions-Policy", "camera=(self), microphone=(), geolocation=(), payment=()"))
                 .andExpect(header().exists("Content-Security-Policy"))
                 .andExpect(header().string("Content-Security-Policy",
                         org.hamcrest.Matchers.containsString("default-src 'self'")))

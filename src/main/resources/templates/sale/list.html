@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/nav :: head('Sales')}"></head>
+<head>
+    <th:block th:replace="~{fragments/nav :: head('Sales')}"></th:block>
+    <!-- html5-qrcode for Webcam / Device Camera Barcode Scanning -->
+    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+</head>
 <body>
 <div class="app-wrapper">
     <aside th:replace="~{fragments/nav :: sidebar('sales')}"></aside>
@@ -134,7 +138,7 @@
             <div class="modal-header-brand">
                 <div>
                     <h5 class="modal-title">New Retail Sales Order</h5>
-                    <div class="small text-muted">Scan barcode or pick items. <kbd class="px-1 py-0 bg-light text-dark border rounded">F2</kbd> Search &bull; <kbd class="px-1 py-0 bg-light text-dark border rounded">F4</kbd> Customer &bull; <kbd class="px-1 py-0 bg-light text-dark border rounded">F8</kbd> Pay</div>
+                    <div class="small text-muted">Scan barcode or pick items. <kbd class="px-1 py-0 bg-light text-dark border rounded">F2</kbd> Search &bull; <kbd class="px-1 py-0 bg-light text-dark border rounded">F3</kbd> Camera &bull; <kbd class="px-1 py-0 bg-light text-dark border rounded">F4</kbd> Customer &bull; <kbd class="px-1 py-0 bg-light text-dark border rounded">F8</kbd> Pay</div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -146,17 +150,48 @@
                             <!-- Filters -->
                             <div class="pos-catalog-toolbar mb-3">
                                 <div class="row g-2 align-items-center">
-                                    <div class="col-sm-6">
-                                        <div class="search-box w-100" style="max-width: 100%;">
-                                            <input type="text" id="posProductSearch" class="form-control form-control-sm" placeholder="Scan SKU / Search apparel... [Enter to Add]" oninput="filterPosCatalog()" onkeydown="handleBarcodeSearchKeyDown(event)">
+                                    <div class="col-sm-7">
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" id="posProductSearch" class="form-control" placeholder="Scan SKU / Search... [Enter to Add]" oninput="filterPosCatalog()" onkeydown="handleBarcodeSearchKeyDown(event)">
+                                            <button type="button" class="btn btn-outline-secondary d-flex align-items-center gap-1" id="btnToggleCameraScanner" onclick="toggleCameraScanner()" title="Scan barcode with Camera / Webcam [F3]">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+                                                    <path d="M15 12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1.172a3 3 0 0 0 2.12-.879l.83-.828A1 1 0 0 1 7.829 3h2.342a1 1 0 0 1 .707.293l.828.828A3 3 0 0 0 13.828 5H15a1 1 0 0 1 1 1zM2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4z"/>
+                                                    <path d="M8 11a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5m0 1a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M3 6.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0"/>
+                                                </svg>
+                                                <span>Camera</span>
+                                            </button>
                                         </div>
                                     </div>
-                                    <div class="col-sm-6">
+                                    <div class="col-sm-5">
                                         <select id="posCategoryFilter" class="form-select form-select-sm" onchange="filterPosCatalog()">
                                             <option value="">All Categories</option>
                                             <option th:each="cat : ${categories}" th:value="${cat.categoryId}" th:text="${cat.categoryName}"></option>
                                         </select>
                                     </div>
+                                </div>
+                            </div>
+
+                            <!-- Live Camera Scanner Card (Collapsible) -->
+                            <div id="posCameraScannerCard" class="pos-camera-card mb-3 shadow-sm" style="display: none;">
+                                <div class="py-1 px-3 d-flex justify-content-between align-items-center" style="background: rgba(255,255,255,0.06); border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                    <div class="d-flex align-items-center gap-2 small">
+                                        <span class="pulse-live-badge"></span>
+                                        <span class="fw-semibold">Webcam Barcode Scanner</span>
+                                        <span id="posCameraStatusText" class="text-white-50 small">(Aim at SKU barcode / QR)</span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <select id="posCameraDeviceSelect" class="form-select form-select-sm py-0 px-2 bg-dark text-white border-secondary" style="font-size: 11px; max-width: 150px;" onchange="switchCameraDevice(this.value)">
+                                            <option value="">Default Camera</option>
+                                        </select>
+                                        <button type="button" class="btn btn-sm btn-outline-light py-0 px-2" style="font-size: 11px;" onclick="stopCameraScanner()">Close</button>
+                                    </div>
+                                </div>
+                                <div class="pos-camera-viewport p-2">
+                                    <div id="posInteractiveScanner" style="width: 100%; max-width: 380px;"></div>
+                                    <div class="scanner-laser-line"></div>
+                                </div>
+                                <div class="py-1 px-3 small text-center text-white-50" style="font-size: 11px; background: rgba(255,255,255,0.04);">
+                                    Hold apparel tag or product barcode steady inside the viewfinder. Automatically adds to cart on scan.
                                 </div>
                             </div>
 
@@ -547,6 +582,48 @@
     }
   }
 
+  // Process scanned or entered SKU/query across variants
+  function processScannedSku(rawQuery, source = 'scanner') {
+    const q = (rawQuery || '').trim();
+    if (!q) return false;
+
+    const qLower = q.toLowerCase();
+    // 1. First priority: Exact match on SKU
+    let match = masterVariants.find(v => (v.sku || '').toLowerCase() === qLower);
+
+    // 2. Second priority: Single matching item in current catalog filter
+    if (!match) {
+      const catId = document.getElementById('posCategoryFilter')?.value || '';
+      const filtered = masterVariants.filter(v => {
+        const matchCat = !catId || String(v.categoryId) === String(catId);
+        const matchSearch = (v.productName && v.productName.toLowerCase().includes(qLower)) ||
+          (v.sku && v.sku.toLowerCase().includes(qLower)) ||
+          (v.sizeName && v.sizeName.toLowerCase().includes(qLower)) ||
+          (v.colorName && v.colorName.toLowerCase().includes(qLower));
+        return matchCat && matchSearch;
+      });
+
+      if (filtered.length === 1) {
+        match = filtered[0];
+      }
+    }
+
+    if (match) {
+      if (Number(match.stockQty || 0) <= 0) {
+        showToast(`Cannot add ${match.productName} (${match.sku}): Out of stock!`, 'warning');
+        return false;
+      }
+      pickVariant(match.variantId);
+      playBeepSound();
+      const prefix = source === 'camera' ? 'Camera scanned: ' : 'Scanned & added: ';
+      showToast(`${prefix}${match.productName} (${match.sku})`, 'success');
+      return true;
+    } else {
+      showToast(`No item found matching SKU/barcode: "${q}"`, 'warning');
+      return false;
+    }
+  }
+
   // Barcode / SKU auto-add on Enter key
   function handleBarcodeSearchKeyDown(e) {
     if (e.key === 'Enter') {
@@ -555,41 +632,144 @@
       const q = (input?.value || '').trim();
       if (!q) return;
 
-      const qLower = q.toLowerCase();
-      // 1. First priority: Exact match on SKU
-      let match = masterVariants.find(v => (v.sku || '').toLowerCase() === qLower);
-
-      // 2. Second priority: Single matching item in current catalog filter
-      if (!match) {
-        const catId = document.getElementById('posCategoryFilter')?.value || '';
-        const filtered = masterVariants.filter(v => {
-          const matchCat = !catId || String(v.categoryId) === String(catId);
-          const matchSearch = (v.productName && v.productName.toLowerCase().includes(qLower)) ||
-            (v.sku && v.sku.toLowerCase().includes(qLower)) ||
-            (v.sizeName && v.sizeName.toLowerCase().includes(qLower)) ||
-            (v.colorName && v.colorName.toLowerCase().includes(qLower));
-          return matchCat && matchSearch;
-        });
-
-        if (filtered.length === 1) {
-          match = filtered[0];
-        }
-      }
-
-      if (match) {
-        if (Number(match.stockQty || 0) <= 0) {
-          showToast(`Cannot add ${match.productName} (${match.sku}): Out of stock!`, 'warning');
-          return;
-        }
-        pickVariant(match.variantId);
-        playBeepSound();
-        showToast(`Scanned & added: ${match.productName} (${match.sku})`, 'success');
+      if (processScannedSku(q, 'scanner')) {
         input.value = '';
         filterPosCatalog();
-      } else {
-        showToast(`No item found matching SKU/barcode: "${q}"`, 'warning');
       }
     }
+  }
+
+  // Camera / Webcam Barcode Scanner Controller
+  let html5QrCodeScanner = null;
+  let isCameraScannerRunning = false;
+  let lastCameraScanCode = '';
+  let lastCameraScanTime = 0;
+
+  async function toggleCameraScanner() {
+    if (isCameraScannerRunning) {
+      stopCameraScanner();
+    } else {
+      await startCameraScanner();
+    }
+  }
+
+  async function startCameraScanner() {
+    const card = document.getElementById('posCameraScannerCard');
+    const statusText = document.getElementById('posCameraStatusText');
+    const deviceSelect = document.getElementById('posCameraDeviceSelect');
+    if (!card) return;
+
+    if (typeof Html5Qrcode === 'undefined') {
+      showToast('Camera scanner library is not loaded. Please verify internet connectivity.', 'error');
+      return;
+    }
+
+    try {
+      card.style.display = 'block';
+      if (statusText) statusText.textContent = 'Requesting camera permissions...';
+
+      const devices = await Html5Qrcode.getCameras();
+      if (!devices || devices.length === 0) {
+        showToast('No camera found on this device.', 'warning');
+        if (statusText) statusText.textContent = 'No camera found';
+        return;
+      }
+
+      if (deviceSelect) {
+        deviceSelect.innerHTML = devices.map((d, idx) => `
+          <option value="${d.id}" ${idx === 0 ? 'selected' : ''}>${escapeHtml(d.label || 'Camera ' + (idx + 1))}</option>
+        `).join('');
+      }
+
+      const cameraId = deviceSelect?.value || devices[0].id;
+      await initHtml5ScannerWithDevice(cameraId);
+
+    } catch (err) {
+      console.error('Camera initialization error', err);
+      showToast(err.message || 'Unable to access camera. Please allow camera permissions.', 'error');
+      stopCameraScanner();
+    }
+  }
+
+  async function initHtml5ScannerWithDevice(cameraId) {
+    const statusText = document.getElementById('posCameraStatusText');
+    try {
+      if (html5QrCodeScanner) {
+        try {
+          await html5QrCodeScanner.stop();
+          html5QrCodeScanner.clear();
+        } catch (_) {}
+      }
+
+      html5QrCodeScanner = new Html5Qrcode('posInteractiveScanner');
+      const config = {
+        fps: 10,
+        qrbox: { width: 260, height: 160 },
+        aspectRatio: 1.777778
+      };
+
+      await html5QrCodeScanner.start(
+        cameraId,
+        config,
+        (decodedText) => {
+          onCameraBarcodeScanned(decodedText);
+        },
+        () => {}
+      );
+
+      isCameraScannerRunning = true;
+      if (statusText) statusText.textContent = 'Scanning... Align barcode in frame';
+      const toggleBtn = document.getElementById('btnToggleCameraScanner');
+      if (toggleBtn) {
+        toggleBtn.classList.replace('btn-outline-secondary', 'btn-danger');
+        toggleBtn.title = 'Stop Camera Scanner [F3]';
+      }
+    } catch (err) {
+      console.error('Failed to start scanner with camera ID:', cameraId, err);
+      showToast('Could not start video stream with selected camera.', 'error');
+      stopCameraScanner();
+    }
+  }
+
+  function onCameraBarcodeScanned(decodedText) {
+    const now = Date.now();
+    if (decodedText === lastCameraScanCode && (now - lastCameraScanTime) < 2000) {
+      return;
+    }
+    lastCameraScanCode = decodedText;
+    lastCameraScanTime = now;
+
+    const viewport = document.querySelector('.pos-camera-viewport');
+    if (viewport) {
+      viewport.style.outline = '3px solid #4f5c46';
+      setTimeout(() => { if (viewport) viewport.style.outline = 'none'; }, 600);
+    }
+
+    processScannedSku(decodedText, 'camera');
+  }
+
+  async function switchCameraDevice(deviceId) {
+    if (!deviceId || !isCameraScannerRunning) return;
+    await initHtml5ScannerWithDevice(deviceId);
+  }
+
+  async function stopCameraScanner() {
+    const card = document.getElementById('posCameraScannerCard');
+    const toggleBtn = document.getElementById('btnToggleCameraScanner');
+    if (card) card.style.display = 'none';
+    if (toggleBtn) {
+      toggleBtn.classList.replace('btn-danger', 'btn-outline-secondary');
+      toggleBtn.title = 'Scan barcode with Camera / Webcam [F3]';
+    }
+
+    if (html5QrCodeScanner) {
+      try {
+        await html5QrCodeScanner.stop();
+        html5QrCodeScanner.clear();
+      } catch (_) {}
+      html5QrCodeScanner = null;
+    }
+    isCameraScannerRunning = false;
   }
 
   // Quick Customer Creation modal handlers
@@ -1213,13 +1393,16 @@
 
   document.addEventListener('DOMContentLoaded', loadMasterVariants);
   document.getElementById('newSaleModal')?.addEventListener('show.bs.modal', loadMasterVariants);
+  document.getElementById('newSaleModal')?.addEventListener('hidden.bs.modal', () => {
+    stopCameraScanner();
+  });
   document.getElementById('invoiceModal')?.addEventListener('hidden.bs.modal', () => {
     if (reloadAfterInvoice) {
       window.location.reload();
     }
   });
 
-  // Global POS Keyboard Shortcuts: F2 (Barcode/Search), F4 (Customer Dropdown), F8 (Checkout Amount)
+  // Global POS Keyboard Shortcuts: F2 (Barcode/Search), F3 (Camera Scanner), F4 (Customer Dropdown), F8 (Checkout Amount)
   document.addEventListener('keydown', (e) => {
     const newSaleModal = document.getElementById('newSaleModal');
     if (!newSaleModal || !newSaleModal.classList.contains('show')) return;
@@ -1233,6 +1416,9 @@
         search.focus();
         search.select();
       }
+    } else if (e.key === 'F3') {
+      e.preventDefault();
+      toggleCameraScanner();
     } else if (e.key === 'F4') {
       e.preventDefault();
       const cust = document.getElementById('saleCustomerId');

@@ -972,6 +972,63 @@ i.bi {
   letter-spacing: 0.02em;
 }
 
+/* POS Camera Barcode Scanner */
+.pos-camera-card {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--ink);
+  overflow: hidden;
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: var(--shadow-md);
+  transition: all 0.25s ease;
+}
+.pos-camera-viewport {
+  position: relative;
+  background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 220px;
+  max-height: 320px;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+}
+.pos-camera-viewport video {
+  max-height: 300px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+.scanner-laser-line {
+  position: absolute;
+  top: 50%;
+  left: 6%;
+  right: 6%;
+  height: 2px;
+  background: var(--rust, #8d4b40);
+  box-shadow: 0 0 8px var(--rust, #8d4b40), 0 0 16px rgba(141, 75, 64, 0.85);
+  pointer-events: none;
+  animation: scannerLaserScan 2s ease-in-out infinite alternate;
+  z-index: 5;
+}
+@keyframes scannerLaserScan {
+  0% { transform: translateY(-70px); opacity: 0.9; }
+  100% { transform: translateY(70px); opacity: 0.9; }
+}
+.pulse-live-badge {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #e02424;
+  box-shadow: 0 0 0 0 rgba(224, 36, 36, 0.7);
+  animation: pulseLive 1.5s infinite;
+}
+@keyframes pulseLive {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(224, 36, 36, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(224, 36, 36, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(224, 36, 36, 0); }
+}
+
 /* Print-only components hidden on screen display */
 .print-only-header,
 .print-only-footer {

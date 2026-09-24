@@ -72,7 +72,7 @@ public class SecurityConfig {
                 .frameOptions(frame -> frame.deny())
                 .referrerPolicy(referrer -> referrer.policy(ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
                 .addHeaderWriter(new org.springframework.security.web.header.writers.StaticHeadersWriter(
-                    "Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()"
+                    "Permissions-Policy", "camera=(self), microphone=(), geolocation=(), payment=()"
                 ))
             )
             .sessionManagement(session -> session
