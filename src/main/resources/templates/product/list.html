@@ -47,7 +47,9 @@
                     <table class="table-pro" id="productsTable">
                         <thead>
                         <tr>
-                            <th style="width: 70px;">ID</th>
+                            <th style="width: 85px; cursor: pointer; user-select: none;" onclick="toggleSortById()" title="Sort by ID (Largest to Smallest)">
+                                ID <span id="idSortIndicator" class="text-primary fw-bold">&darr;</span>
+                            </th>
                             <th style="width: 70px;">Image</th>
                             <th>Product Name</th>
                             <th>Category</th>
@@ -385,6 +387,35 @@
 
   function filterByCategory() {
     applyProductFilters();
+  }
+
+  let idSortDesc = true;
+
+  function toggleSortById() {
+    idSortDesc = !idSortDesc;
+    const tbody = document.querySelector('#productsTable tbody');
+    if (!tbody) return;
+    const rows = Array.from(tbody.querySelectorAll('tr[data-cat-id]'));
+    const indicator = document.getElementById('idSortIndicator');
+    if (indicator) {
+      indicator.innerHTML = idSortDesc ? '&darr;' : '&uarr;';
+      const th = indicator.closest('th');
+      if (th) {
+        th.title = idSortDesc ? 'Sort by ID (Largest to Smallest)' : 'Sort by ID (Smallest to Largest)';
+      }
+    }
+
+    rows.sort((a, b) => {
+      const idA = parseInt((a.id || '').replace('prod-row-', ''), 10) || 0;
+      const idB = parseInt((b.id || '').replace('prod-row-', ''), 10) || 0;
+      return idSortDesc ? (idB - idA) : (idA - idB);
+    });
+
+    const noMatchRow = document.getElementById('noProductMatchRow');
+    rows.forEach(r => tbody.appendChild(r));
+    if (noMatchRow) {
+      tbody.appendChild(noMatchRow);
+    }
   }
 
   document.addEventListener('DOMContentLoaded', () => {

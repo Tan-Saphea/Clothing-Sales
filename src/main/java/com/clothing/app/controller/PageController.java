@@ -151,6 +151,10 @@ public class PageController {
                            @RequestParam(name = "showInactive", defaultValue = "false") boolean showInactive,
                            @RequestParam(name = "status", required = false) String statusParam) {
         List<Map<String, Object>> rows = productService.findAll().stream()
+                .sorted((a, b) -> Long.compare(
+                        b.getProductId() != null ? b.getProductId() : 0L,
+                        a.getProductId() != null ? a.getProductId() : 0L
+                ))
                 .map(product -> {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("productId", product.getProductId());

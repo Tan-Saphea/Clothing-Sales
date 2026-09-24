@@ -11,16 +11,16 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ProductRepository extends JpaRepository<Product, Long> {
-    @Query("SELECT p FROM Product p LEFT JOIN FETCH p.category")
+    @Query("SELECT p FROM Product p LEFT JOIN FETCH p.category ORDER BY p.productId DESC")
     List<Product> findAllWithCategory();
 
     @Query("SELECT p FROM Product p LEFT JOIN FETCH p.category WHERE p.productId = :productId")
     Optional<Product> findByIdWithCategory(@Param("productId") Long productId);
 
-    @Query("SELECT p FROM Product p LEFT JOIN FETCH p.category WHERE LOWER(p.productName) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+    @Query("SELECT p FROM Product p LEFT JOIN FETCH p.category WHERE LOWER(p.productName) LIKE LOWER(CONCAT('%', :keyword, '%')) ORDER BY p.productId DESC")
     List<Product> searchByNameWithCategory(@Param("keyword") String keyword);
 
-    @Query("SELECT p FROM Product p LEFT JOIN FETCH p.category WHERE p.category.categoryId = :categoryId")
+    @Query("SELECT p FROM Product p LEFT JOIN FETCH p.category WHERE p.category.categoryId = :categoryId ORDER BY p.productId DESC")
     List<Product> findByCategoryIdWithCategory(@Param("categoryId") Long categoryId);
 
     @Modifying
