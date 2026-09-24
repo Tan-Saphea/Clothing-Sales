@@ -134,7 +134,7 @@
             <div class="modal-header-brand">
                 <div>
                     <h5 class="modal-title">New Retail Sales Order</h5>
-                    <div class="small text-muted">Browse apparel images on the left and click cards to pick items into the order cart.</div>
+                    <div class="small text-muted">Scan barcode or pick items. <kbd class="px-1 py-0 bg-light text-dark border rounded">F2</kbd> Search &bull; <kbd class="px-1 py-0 bg-light text-dark border rounded">F4</kbd> Customer &bull; <kbd class="px-1 py-0 bg-light text-dark border rounded">F8</kbd> Pay</div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -148,7 +148,7 @@
                                 <div class="row g-2 align-items-center">
                                     <div class="col-sm-6">
                                         <div class="search-box w-100" style="max-width: 100%;">
-                                            <input type="text" id="posProductSearch" class="form-control form-control-sm" placeholder="Search apparel name, SKU..." oninput="filterPosCatalog()">
+                                            <input type="text" id="posProductSearch" class="form-control form-control-sm" placeholder="Scan SKU / Search apparel... [Enter to Add]" oninput="filterPosCatalog()" onkeydown="handleBarcodeSearchKeyDown(event)">
                                         </div>
                                     </div>
                                     <div class="col-sm-6">
@@ -176,7 +176,10 @@
                             <div class="pos-order-meta mb-3 p-2 bg-light border rounded-2">
                                 <div class="row g-2 mb-2">
                                     <div class="col-6">
-                                        <label class="form-label small mb-1">Customer</label>
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <label class="form-label small mb-0" for="saleCustomerId">Customer</label>
+                                            <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none fw-semibold" style="font-size: 11px;" onclick="openQuickAddCustomerModal()">+ New</button>
+                                        </div>
                                         <select class="form-select form-select-sm" id="saleCustomerId">
                                             <option value="">Walk-in Customer</option>
                                             <option th:each="c : ${customers}" th:value="${c.customerId}" th:text="${c.customerName + ' (' + (c.phone ?: 'No Phone') + ')'}"></option>
@@ -280,6 +283,48 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Add Customer Modal (Embedded in POS) -->
+<div class="modal fade" id="quickAddCustomerModal" tabindex="-1" aria-hidden="true" style="z-index: 1065;">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content shadow border-0">
+            <div class="modal-header-brand py-2 px-3">
+                <h6 class="modal-title mb-0 fw-bold">New Customer</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="quickAddCustomerForm" onsubmit="submitQuickAddCustomer(event)">
+                <div class="modal-body p-3">
+                    <div class="mb-2">
+                        <label class="form-label small mb-1" for="quickCustName">Full Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-sm" id="quickCustName" required placeholder="e.g. Sreymom Keo">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small mb-1" for="quickCustPhone">Phone Number</label>
+                        <input type="tel" class="form-control form-control-sm" id="quickCustPhone" placeholder="e.g. 012 345 678">
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label small mb-1" for="quickCustGender">Gender</label>
+                            <select class="form-select form-select-sm" id="quickCustGender">
+                                <option value="Female" selected>Female</option>
+                                <option value="Male">Male</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-1" for="quickCustEmail">Email</label>
+                            <input type="email" class="form-control form-control-sm" id="quickCustEmail" placeholder="Optional">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2 px-3 bg-light">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm btn-brand-primary" id="btnSubmitQuickCust">Save &amp; Select</button>
                 </div>
             </form>
         </div>
@@ -479,6 +524,127 @@
     });
 
     renderPosCatalog(filtered);
+  }
+
+  // Web Audio API POS Barcode scanner chime (1400 Hz tone, 120ms duration)
+  function playBeepSound() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const audioCtx = new AudioCtx();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1400, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.12);
+    } catch (e) {
+      // AudioContext unavailable or blocked by autoplay policy; silent fallback
+    }
+  }
+
+  // Barcode / SKU auto-add on Enter key
+  function handleBarcodeSearchKeyDown(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const input = document.getElementById('posProductSearch');
+      const q = (input?.value || '').trim();
+      if (!q) return;
+
+      const qLower = q.toLowerCase();
+      // 1. First priority: Exact match on SKU
+      let match = masterVariants.find(v => (v.sku || '').toLowerCase() === qLower);
+
+      // 2. Second priority: Single matching item in current catalog filter
+      if (!match) {
+        const catId = document.getElementById('posCategoryFilter')?.value || '';
+        const filtered = masterVariants.filter(v => {
+          const matchCat = !catId || String(v.categoryId) === String(catId);
+          const matchSearch = (v.productName && v.productName.toLowerCase().includes(qLower)) ||
+            (v.sku && v.sku.toLowerCase().includes(qLower)) ||
+            (v.sizeName && v.sizeName.toLowerCase().includes(qLower)) ||
+            (v.colorName && v.colorName.toLowerCase().includes(qLower));
+          return matchCat && matchSearch;
+        });
+
+        if (filtered.length === 1) {
+          match = filtered[0];
+        }
+      }
+
+      if (match) {
+        if (Number(match.stockQty || 0) <= 0) {
+          showToast(`Cannot add ${match.productName} (${match.sku}): Out of stock!`, 'warning');
+          return;
+        }
+        pickVariant(match.variantId);
+        playBeepSound();
+        showToast(`Scanned & added: ${match.productName} (${match.sku})`, 'success');
+        input.value = '';
+        filterPosCatalog();
+      } else {
+        showToast(`No item found matching SKU/barcode: "${q}"`, 'warning');
+      }
+    }
+  }
+
+  // Quick Customer Creation modal handlers
+  function openQuickAddCustomerModal() {
+    const form = document.getElementById('quickAddCustomerForm');
+    if (form) form.reset();
+    const modalEl = document.getElementById('quickAddCustomerModal');
+    if (!modalEl) return;
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
+    setTimeout(() => document.getElementById('quickCustName')?.focus(), 300);
+  }
+
+  async function submitQuickAddCustomer(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSubmitQuickCust');
+    const name = document.getElementById('quickCustName')?.value.trim();
+    const phone = document.getElementById('quickCustPhone')?.value.trim();
+    const gender = document.getElementById('quickCustGender')?.value || 'Female';
+    const email = document.getElementById('quickCustEmail')?.value.trim();
+
+    if (!name) {
+      showToast('Customer name is required', 'error');
+      return;
+    }
+
+    try {
+      if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+
+      const created = await apiRequest('/api/customers', 'POST', {
+        customerName: name,
+        phone: phone || null,
+        gender: gender,
+        email: email || null
+      });
+
+      const select = document.getElementById('saleCustomerId');
+      if (select && created && created.customerId) {
+        const phoneLabel = created.phone ? ` (${created.phone})` : ' (No Phone)';
+        const opt = new Option(`${created.customerName}${phoneLabel}`, created.customerId, true, true);
+        select.add(opt);
+        select.value = created.customerId;
+      }
+
+      const modalEl = document.getElementById('quickAddCustomerModal');
+      const modalInstance = bootstrap.Modal.getInstance(modalEl);
+      if (modalInstance) modalInstance.hide();
+
+      playBeepSound();
+      showToast(`Customer "${name}" created and selected!`, 'success');
+    } catch (err) {
+      showToast(err.message || 'Failed to create customer', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Save & Select'; }
+    }
   }
 
   function renderPosCatalog(items) {
@@ -1050,6 +1216,40 @@
   document.getElementById('invoiceModal')?.addEventListener('hidden.bs.modal', () => {
     if (reloadAfterInvoice) {
       window.location.reload();
+    }
+  });
+
+  // Global POS Keyboard Shortcuts: F2 (Barcode/Search), F4 (Customer Dropdown), F8 (Checkout Amount)
+  document.addEventListener('keydown', (e) => {
+    const newSaleModal = document.getElementById('newSaleModal');
+    if (!newSaleModal || !newSaleModal.classList.contains('show')) return;
+    const quickCustModal = document.getElementById('quickAddCustomerModal');
+    if (quickCustModal && quickCustModal.classList.contains('show')) return;
+
+    if (e.key === 'F2') {
+      e.preventDefault();
+      const search = document.getElementById('posProductSearch');
+      if (search) {
+        search.focus();
+        search.select();
+      }
+    } else if (e.key === 'F4') {
+      e.preventDefault();
+      const cust = document.getElementById('saleCustomerId');
+      if (cust) {
+        cust.focus();
+      }
+    } else if (e.key === 'F8') {
+      e.preventDefault();
+      if (posCart.length === 0) {
+        showToast('Cart is empty. Scan or pick items first.', 'warning');
+        return;
+      }
+      const payInput = document.getElementById('checkoutPaymentAmount');
+      if (payInput) {
+        payInput.focus();
+        payInput.select();
+      }
     }
   });
 </script>
