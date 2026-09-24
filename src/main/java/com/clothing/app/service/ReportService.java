@@ -8,11 +8,13 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 @Transactional(readOnly = true)
@@ -354,7 +356,192 @@ public class ReportService {
         String p = (period != null && !period.isBlank()) ? period.toLowerCase().trim() : "all";
         DateRange range = calculateDateRange(p);
 
-        if ("yearly".equals(p)) {
+        if ("daily".equals(p) || "today".equals(p)) {
+            // Hourly breakdown across business hours (08:00 to 21:00)
+            Map<String, BigDecimal> revenueByHour = new LinkedHashMap<>();
+            Map<String, Long> countByHour = new LinkedHashMap<>();
+            for (int h = 8; h <= 21; h++) {
+                String hourStr = String.format("%02d:00", h);
+                revenueByHour.put(hourStr, BigDecimal.ZERO);
+                countByHour.put(hourStr, 0L);
+            }
+
+            String sql = """
+                SELECT s.SALE_ID,
+                       s.GRAND_TOTAL,
+                       s.CREATED_AT
+                FROM SALE s
+                WHERE s.STATUS = 'COMPLETED' AND s.SALE_DATE >= ? AND s.SALE_DATE < ?
+                """;
+
+            List<Map<String, Object>> rows;
+            try {
+                rows = jdbcTemplate.queryForList(sql, java.sql.Date.valueOf(range.startDate()), java.sql.Date.valueOf(range.endDate()));
+            } catch (Exception ex) {
+                rows = List.of();
+            }
+
+            for (Map<String, Object> row : rows) {
+                BigDecimal grandTotal = BigDecimal.ZERO;
+                Object gt = row.get("GRAND_TOTAL");
+                if (gt instanceof BigDecimal bd) {
+                    grandTotal = bd;
+                } else if (gt instanceof Number num) {
+                    grandTotal = BigDecimal.valueOf(num.doubleValue());
+                }
+
+                int hour = 12;
+                Object createdAtObj = row.get("CREATED_AT");
+                if (createdAtObj instanceof java.sql.Timestamp ts) {
+                    hour = ts.toLocalDateTime().getHour();
+                } else if (createdAtObj instanceof java.time.LocalDateTime ldt) {
+                    hour = ldt.getHour();
+                } else if (createdAtObj != null) {
+                    try {
+                        String s = createdAtObj.toString();
+                        if (s.contains(" ") || s.contains("T")) {
+                            String timePart = s.contains(" ") ? s.split(" ")[1] : s.split("T")[1];
+                            hour = Integer.parseInt(timePart.split(":")[0]);
+                        }
+                    } catch (Exception ignored) {}
+                }
+
+                if (hour < 8) hour = 8;
+                if (hour > 21) hour = 21;
+                String slot = String.format("%02d:00", hour);
+
+                revenueByHour.put(slot, revenueByHour.get(slot).add(grandTotal));
+                countByHour.put(slot, countByHour.get(slot) + 1L);
+            }
+
+            List<Map<String, Object>> result = new ArrayList<>();
+            for (Map.Entry<String, BigDecimal> entry : revenueByHour.entrySet()) {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("LABEL", entry.getKey());
+                item.put("TOTAL_SALES", countByHour.get(entry.getKey()));
+                item.put("NET_SALES", entry.getValue());
+                result.add(item);
+            }
+            return result;
+        }
+
+        if ("weekly".equals(p) || "week".equals(p)) {
+            LocalDate start = range.startDate();
+            Map<String, BigDecimal> revMap = new LinkedHashMap<>();
+            Map<String, Long> countMap = new LinkedHashMap<>();
+            Map<String, String> dayLabelMap = new LinkedHashMap<>();
+
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MM-dd");
+            for (int i = 0; i < 7; i++) {
+                LocalDate d = start.plusDays(i);
+                String key = d.toString();
+                String dayName = d.getDayOfWeek().name().substring(0, 3);
+                String label = dayName + " (" + d.format(fmt) + ")";
+                revMap.put(key, BigDecimal.ZERO);
+                countMap.put(key, 0L);
+                dayLabelMap.put(key, label);
+            }
+
+            String sql = """
+                SELECT TO_CHAR(s.SALE_DATE, 'YYYY-MM-DD') AS SALE_DAY,
+                       COUNT(*) AS TOTAL_SALES,
+                       COALESCE(SUM(s.GRAND_TOTAL), 0) AS NET_SALES
+                FROM SALE s
+                WHERE s.STATUS = 'COMPLETED' AND s.SALE_DATE >= ? AND s.SALE_DATE < ?
+                GROUP BY TO_CHAR(s.SALE_DATE, 'YYYY-MM-DD')
+                """;
+
+            List<Map<String, Object>> rows;
+            try {
+                rows = jdbcTemplate.queryForList(sql, java.sql.Date.valueOf(range.startDate()), java.sql.Date.valueOf(range.endDate()));
+            } catch (Exception ex) {
+                rows = List.of();
+            }
+
+            for (Map<String, Object> r : rows) {
+                String day = Objects.toString(r.get("SALE_DAY"), "");
+                if (revMap.containsKey(day)) {
+                    Object net = r.get("NET_SALES");
+                    BigDecimal val = net instanceof BigDecimal bd ? bd : BigDecimal.valueOf(((Number) net).doubleValue());
+                    revMap.put(day, val);
+                    countMap.put(day, ((Number) r.get("TOTAL_SALES")).longValue());
+                }
+            }
+
+            List<Map<String, Object>> result = new ArrayList<>();
+            for (String key : revMap.keySet()) {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("LABEL", dayLabelMap.get(key));
+                item.put("TOTAL_SALES", countMap.get(key));
+                item.put("NET_SALES", revMap.get(key));
+                result.add(item);
+            }
+            return result;
+        }
+
+        if ("monthly".equals(p) || "month".equals(p)) {
+            LocalDate start = range.startDate();
+            LocalDate end = range.endDate();
+            Map<String, BigDecimal> revMap = new LinkedHashMap<>();
+            Map<String, Long> countMap = new LinkedHashMap<>();
+
+            LocalDate cur = start;
+            while (cur.isBefore(end)) {
+                String key = cur.toString();
+                revMap.put(key, BigDecimal.ZERO);
+                countMap.put(key, 0L);
+                cur = cur.plusDays(1);
+            }
+
+            String sql = """
+                SELECT TO_CHAR(s.SALE_DATE, 'YYYY-MM-DD') AS SALE_DAY,
+                       COUNT(*) AS TOTAL_SALES,
+                       COALESCE(SUM(s.GRAND_TOTAL), 0) AS NET_SALES
+                FROM SALE s
+                WHERE s.STATUS = 'COMPLETED' AND s.SALE_DATE >= ? AND s.SALE_DATE < ?
+                GROUP BY TO_CHAR(s.SALE_DATE, 'YYYY-MM-DD')
+                """;
+
+            List<Map<String, Object>> rows;
+            try {
+                rows = jdbcTemplate.queryForList(sql, java.sql.Date.valueOf(range.startDate()), java.sql.Date.valueOf(range.endDate()));
+            } catch (Exception ex) {
+                rows = List.of();
+            }
+
+            for (Map<String, Object> r : rows) {
+                String day = Objects.toString(r.get("SALE_DAY"), "");
+                if (revMap.containsKey(day)) {
+                    Object net = r.get("NET_SALES");
+                    BigDecimal val = net instanceof BigDecimal bd ? bd : BigDecimal.valueOf(((Number) net).doubleValue());
+                    revMap.put(day, val);
+                    countMap.put(day, ((Number) r.get("TOTAL_SALES")).longValue());
+                }
+            }
+
+            List<Map<String, Object>> result = new ArrayList<>();
+            for (String key : revMap.keySet()) {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("LABEL", key.substring(5));
+                item.put("TOTAL_SALES", countMap.get(key));
+                item.put("NET_SALES", revMap.get(key));
+                result.add(item);
+            }
+            return result;
+        }
+
+        if ("yearly".equals(p) || "year".equals(p)) {
+            int year = range.startDate() != null ? range.startDate().getYear() : LocalDate.now().getYear();
+            Map<String, BigDecimal> revMap = new LinkedHashMap<>();
+            Map<String, Long> countMap = new LinkedHashMap<>();
+            String[] monthNames = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+
+            for (int m = 1; m <= 12; m++) {
+                String key = String.format("%04d-%02d", year, m);
+                revMap.put(key, BigDecimal.ZERO);
+                countMap.put(key, 0L);
+            }
+
             String sql = """
                 SELECT TO_CHAR(s.SALE_DATE, 'YYYY-MM') AS LABEL,
                        COUNT(*) AS TOTAL_SALES,
@@ -362,22 +549,35 @@ public class ReportService {
                 FROM SALE s
                 WHERE s.STATUS = 'COMPLETED' AND s.SALE_DATE >= ? AND s.SALE_DATE < ?
                 GROUP BY TO_CHAR(s.SALE_DATE, 'YYYY-MM')
-                ORDER BY LABEL ASC
                 """;
-            return jdbcTemplate.queryForList(sql, java.sql.Date.valueOf(range.startDate()), java.sql.Date.valueOf(range.endDate()));
-        }
 
-        if ("monthly".equals(p) || "weekly".equals(p) || "daily".equals(p)) {
-            String sql = """
-                SELECT TO_CHAR(s.SALE_DATE, 'YYYY-MM-DD') AS LABEL,
-                       COUNT(*) AS TOTAL_SALES,
-                       COALESCE(SUM(s.GRAND_TOTAL), 0) AS NET_SALES
-                FROM SALE s
-                WHERE s.STATUS = 'COMPLETED' AND s.SALE_DATE >= ? AND s.SALE_DATE < ?
-                GROUP BY TO_CHAR(s.SALE_DATE, 'YYYY-MM-DD')
-                ORDER BY LABEL ASC
-                """;
-            return jdbcTemplate.queryForList(sql, java.sql.Date.valueOf(range.startDate()), java.sql.Date.valueOf(range.endDate()));
+            List<Map<String, Object>> rows;
+            try {
+                rows = jdbcTemplate.queryForList(sql, java.sql.Date.valueOf(range.startDate()), java.sql.Date.valueOf(range.endDate()));
+            } catch (Exception ex) {
+                rows = List.of();
+            }
+
+            for (Map<String, Object> r : rows) {
+                String monthKey = Objects.toString(r.get("LABEL"), "");
+                if (revMap.containsKey(monthKey)) {
+                    Object net = r.get("NET_SALES");
+                    BigDecimal val = net instanceof BigDecimal bd ? bd : BigDecimal.valueOf(((Number) net).doubleValue());
+                    revMap.put(monthKey, val);
+                    countMap.put(monthKey, ((Number) r.get("TOTAL_SALES")).longValue());
+                }
+            }
+
+            List<Map<String, Object>> result = new ArrayList<>();
+            int mIdx = 0;
+            for (String key : revMap.keySet()) {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("LABEL", monthNames[mIdx++]);
+                item.put("TOTAL_SALES", countMap.get(key));
+                item.put("NET_SALES", revMap.get(key));
+                result.add(item);
+            }
+            return result;
         }
 
         if ("all".equals(p)) {
@@ -388,7 +588,51 @@ public class ReportService {
                 FROM V_DAILY_SALES
                 ORDER BY SALE_DAY ASC
                 """;
-            return jdbcTemplate.queryForList(sql);
+            List<Map<String, Object>> allList;
+            try {
+                allList = jdbcTemplate.queryForList(sql);
+            } catch (Exception ex) {
+                allList = List.of();
+            }
+
+            if (allList.size() >= 2) {
+                return allList;
+            }
+
+            Map<String, BigDecimal> revMap = new LinkedHashMap<>();
+            Map<String, Long> countMap = new LinkedHashMap<>();
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MM-dd");
+            Map<String, String> dayLabelMap = new LinkedHashMap<>();
+            LocalDate today = LocalDate.now();
+
+            for (int i = 6; i >= 0; i--) {
+                LocalDate d = today.minusDays(i);
+                String key = d.toString();
+                String dayName = d.getDayOfWeek().name().substring(0, 3);
+                revMap.put(key, BigDecimal.ZERO);
+                countMap.put(key, 0L);
+                dayLabelMap.put(key, dayName + " (" + d.format(fmt) + ")");
+            }
+
+            for (Map<String, Object> r : allList) {
+                String day = Objects.toString(r.get("LABEL"), "");
+                if (revMap.containsKey(day)) {
+                    Object net = r.get("NET_SALES");
+                    BigDecimal val = net instanceof BigDecimal bd ? bd : BigDecimal.valueOf(((Number) net).doubleValue());
+                    revMap.put(day, val);
+                    countMap.put(day, ((Number) r.get("TOTAL_SALES")).longValue());
+                }
+            }
+
+            List<Map<String, Object>> padded = new ArrayList<>();
+            for (String key : revMap.keySet()) {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("LABEL", dayLabelMap.get(key));
+                item.put("TOTAL_SALES", countMap.get(key));
+                item.put("NET_SALES", revMap.get(key));
+                padded.add(item);
+            }
+            return padded;
         }
 
         return getDailySales();

@@ -91,7 +91,7 @@
                         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                             <div>
                                 <h3 class="card-title-clean mb-0">Sales & Revenue Trend</h3>
-                                <p class="text-muted small mb-0" id="salesTrendSubtitle">Daily revenue and transaction volume velocity</p>
+                                <p class="text-muted small mb-0" id="salesTrendSubtitle">Hourly revenue and transaction volume velocity for today</p>
                             </div>
                             <span class="badge bg-light text-dark border px-2 py-1 small" id="salesTrendPeriodTag">Today</span>
                         </div>
@@ -334,6 +334,17 @@
     if (badge) badge.textContent = shortPeriodLabels[period] || period.toUpperCase();
     const tag = document.getElementById('salesTrendPeriodTag');
     if (tag) tag.textContent = periodLabels[period] || period.toUpperCase();
+    const subtitleEl = document.getElementById('salesTrendSubtitle');
+    if (subtitleEl) {
+      const subtitles = {
+        daily: 'Hourly revenue and transaction volume velocity for today',
+        weekly: 'Daily revenue and transaction volume velocity across this week',
+        monthly: 'Daily revenue velocity across this month',
+        yearly: 'Monthly revenue and order volume velocity across this year',
+        all: 'Historical revenue and order volume velocity'
+      };
+      subtitleEl.textContent = subtitles[period] || 'Revenue and transaction volume velocity';
+    }
 
     try {
       const res = await apiRequest(`/api/reports/dashboard-data?period=${period}`);
@@ -424,36 +435,40 @@
       salesTrendChartInstance.destroy();
     }
 
+    const maxRev = Math.max(...revenueData, 0);
+    const maxOrders = Math.max(...ordersData, 0);
+
     salesTrendChartInstance = new Chart(ctx, {
-      type: 'line',
       data: {
         labels: labels.length > 0 ? labels : ['No Data'],
         datasets: [
           {
+            type: 'bar',
             label: 'Net Revenue ($)',
             data: revenueData.length > 0 ? revenueData : [0],
-            borderColor: '#25241f',
-            backgroundColor: 'rgba(37, 36, 31, 0.06)',
-            borderWidth: 2,
-            tension: 0.25,
-            fill: true,
+            backgroundColor: 'rgba(37, 36, 31, 0.85)',
+            hoverBackgroundColor: '#25241f',
+            borderRadius: 4,
+            maxBarThickness: 34,
             yAxisID: 'y',
-            pointRadius: 3,
-            pointHoverRadius: 6,
-            pointBackgroundColor: '#25241f'
+            order: 2
           },
           {
+            type: 'line',
             label: 'Orders',
             data: ordersData.length > 0 ? ordersData : [0],
             borderColor: '#4f5c46',
-            backgroundColor: 'transparent',
-            borderWidth: 2,
-            borderDash: [4, 4],
-            tension: 0.2,
+            backgroundColor: 'rgba(79, 92, 70, 0.15)',
+            borderWidth: 2.5,
+            tension: 0.3,
+            fill: false,
             yAxisID: 'y1',
-            pointRadius: 2,
-            pointHoverRadius: 5,
-            pointBackgroundColor: '#4f5c46'
+            pointRadius: 4,
+            pointHoverRadius: 7,
+            pointBackgroundColor: '#4f5c46',
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 1.5,
+            order: 1
           }
         ]
       },
@@ -485,15 +500,19 @@
             type: 'linear',
             display: true,
             position: 'left',
+            beginAtZero: true,
+            suggestedMax: maxRev > 0 ? maxRev * 1.15 : 100,
             grid: { color: '#ece8dd' },
-            ticks: { callback: val => '$' + val, font: { size: 10 } }
+            ticks: { callback: val => '$' + Number(val).toLocaleString(), font: { size: 10 } }
           },
           y1: {
             type: 'linear',
             display: true,
             position: 'right',
+            beginAtZero: true,
+            suggestedMax: maxOrders > 0 ? Math.ceil(maxOrders * 1.25) : 5,
             grid: { drawOnChartArea: false },
-            ticks: { precision: 0, font: { size: 10 } }
+            ticks: { precision: 0, font: { size: 10 }, stepSize: 1 }
           }
         }
       }

@@ -172,4 +172,26 @@ class ReportServiceCashierAndPeriodTest {
                 && sql.contains("s.GRAND_TOTAL / s.SUBTOTAL")
                 && sql.contains("FROM CATEGORY")));
     }
+
+    @Test
+    void testSalesTrend_PaddedAcrossPeriods() {
+        when(jdbcTemplate.queryForList(anyString(), any(Object[].class))).thenReturn(List.of());
+
+        List<Map<String, Object>> dailyTrend = reportService.getSalesTrend("daily");
+        assertEquals(14, dailyTrend.size(), "Daily trend should provide 14 business hour slots");
+        assertEquals("08:00", dailyTrend.get(0).get("LABEL"));
+        assertEquals("21:00", dailyTrend.get(13).get("LABEL"));
+
+        List<Map<String, Object>> weeklyTrend = reportService.getSalesTrend("weekly");
+        assertEquals(7, weeklyTrend.size(), "Weekly trend should provide 7 days");
+
+        List<Map<String, Object>> monthlyTrend = reportService.getSalesTrend("monthly");
+        LocalDate now = LocalDate.now();
+        assertEquals(now.lengthOfMonth(), monthlyTrend.size(), "Monthly trend should match month days");
+
+        List<Map<String, Object>> yearlyTrend = reportService.getSalesTrend("yearly");
+        assertEquals(12, yearlyTrend.size(), "Yearly trend should provide 12 months");
+        assertEquals("Jan", yearlyTrend.get(0).get("LABEL"));
+        assertEquals("Dec", yearlyTrend.get(11).get("LABEL"));
+    }
 }
