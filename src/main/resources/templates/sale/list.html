@@ -115,17 +115,40 @@
                                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16" style="margin-right:3px;vertical-align:-1px"><path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/></svg>
                                         Complete
                                     </button>
-                                    <button th:if="${s['status'] == 'PENDING' or (s['status'] == 'COMPLETED' and isAdmin)}"
+                                    <button th:if="${s['status'] == 'PENDING'}"
                                             class="btn btn-sm btn-outline-danger sale-action-btn"
                                             th:data-id="${s['saleId']}"
-                                            title="Cancel sale, refund recorded payments, and restore stock"
+                                            title="Cancel this pending sale"
                                             onclick="cancelSale(this.getAttribute('data-id'))">
                                         Cancel
+                                    </button>
+                                    <button th:if="${s['status'] == 'COMPLETED' and s['paidAmount'] > 0}"
+                                            class="btn btn-sm btn-outline-danger sale-action-btn"
+                                            th:data-id="${s['saleId']}"
+                                            title="Request an administrator-approved refund"
+                                            onclick="requestRefund(this.getAttribute('data-id'))">
+                                        Request refund
                                     </button>
                                 </div>
                             </td>
                         </tr>
                         </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card mt-4" th:if="${isAdmin}" id="refundManagementCard">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="mb-0 fw-bold">Refund Approvals</h5>
+                        <small class="text-muted">Approval records authorization; completion requires the real refund confirmation/reference.</small>
+                    </div>
+                    <button class="btn btn-sm btn-brand-outline" onclick="loadRefunds()">Refresh</button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table-pro mb-0">
+                        <thead><tr><th>Request</th><th>Sale</th><th>Requested by</th><th>Reason</th><th>Amount</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+                        <tbody id="refundRows"><tr><td colspan="7" class="text-center text-muted py-4">Loading refund requests...</td></tr></tbody>
                     </table>
                 </div>
             </div>
@@ -1274,7 +1297,7 @@
       showToast('A cancellation reason is required.', 'warning');
       return;
     }
-    if (!confirm(`Cancel sale #${id}? Completed-sale stock will be restored and recorded payments marked refunded.`)) return;
+    if (!confirm(`Cancel pending sale #${id}?`)) return;
     try {
       await apiRequest(`/api/sales/${id}/cancel?reason=${encodeURIComponent(reason.trim())}`, 'POST');
       showToast(`Sale #${id} cancelled successfully.`, 'success');
@@ -1282,6 +1305,70 @@
     } catch (err) {
       showToast(err.message, 'error');
     }
+  }
+
+  async function requestRefund(id) {
+    const reason = prompt(`Why should sale #${id} be refunded?`);
+    if (reason === null) return;
+    if (!reason.trim()) {
+      showToast('A refund reason is required.', 'warning');
+      return;
+    }
+    try {
+      await apiRequest(`/api/refunds/request/${id}`, 'POST', {reason: reason.trim()});
+      showToast(`Refund request for sale #${id} was submitted for administrator approval.`, 'success');
+      loadRefunds();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  async function loadRefunds() {
+    const rows = document.getElementById('refundRows');
+    if (!rows) return;
+    try {
+      const refunds = await apiRequest('/api/refunds');
+      rows.innerHTML = refunds.length ? refunds.map(r => `
+        <tr>
+          <td class="fw-bold">#${Number(r.refundId)}</td>
+          <td>INV-${Number(r.saleId)}<div class="small text-muted">${escapeHtml(r.customerName || 'Walk-in')}</div></td>
+          <td>${escapeHtml(r.requestedBy)}</td>
+          <td>${escapeHtml(r.reason)}</td>
+          <td class="fw-bold">$${Number(r.requestedAmount || 0).toFixed(2)}</td>
+          <td><span class="badge bg-light text-dark border">${escapeHtml(r.status)}</span></td>
+          <td class="text-end">
+            ${r.status === 'PENDING' ? `
+              <button class="btn btn-sm btn-outline-success" onclick="approveRefund(${Number(r.refundId)})">Approve</button>
+              <button class="btn btn-sm btn-outline-danger" onclick="rejectRefund(${Number(r.refundId)})">Reject</button>` : ''}
+            ${r.status === 'APPROVED' ? `
+              <button class="btn btn-sm btn-brand-primary" onclick="completeRefund(${Number(r.refundId)})">Confirm refunded</button>` : ''}
+            ${r.refundReference ? `<div class="small text-muted mt-1">Ref: ${escapeHtml(r.refundReference)}</div>` : ''}
+          </td>
+        </tr>`).join('') : '<tr><td colspan="7" class="text-center text-muted py-4">No refund requests.</td></tr>';
+    } catch (err) {
+      rows.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4">${escapeHtml(err.message)}</td></tr>`;
+    }
+  }
+
+  async function approveRefund(id) {
+    const note = prompt('Optional approval note:') ?? '';
+    try { await apiRequest(`/api/refunds/${id}/approve`, 'POST', {note}); showToast('Refund approved; confirm completion only after returning the money.', 'success'); loadRefunds(); }
+    catch (err) { showToast(err.message, 'error'); }
+  }
+
+  async function rejectRefund(id) {
+    const note = prompt('Rejection reason:');
+    if (!note || !note.trim()) return;
+    try { await apiRequest(`/api/refunds/${id}/reject`, 'POST', {note: note.trim()}); showToast('Refund request rejected.', 'success'); loadRefunds(); }
+    catch (err) { showToast(err.message, 'error'); }
+  }
+
+  async function completeRefund(id) {
+    const refundReference = prompt('Enter the cash receipt, bank, card, or provider refund confirmation/reference:');
+    if (!refundReference || !refundReference.trim()) return;
+    if (!confirm('Confirm that the money has actually been returned? This will restore stock and cancel the sale.')) return;
+    try { await apiRequest(`/api/refunds/${id}/complete`, 'POST', {refundReference: refundReference.trim()}); showToast('Refund completed and inventory restored.', 'success'); setTimeout(() => window.location.reload(), 500); }
+    catch (err) { showToast(err.message, 'error'); }
   }
 
   async function openRecordPaymentModal(saleId) {
@@ -1514,6 +1601,8 @@
       }
     }
   });
+
+  loadRefunds();
 </script>
 </body>
 </html>

@@ -50,6 +50,35 @@ public class CloudinaryService {
         return configured && cloudinary != null;
     }
 
+    public Map<String, Object> testConnection() {
+        if (!isConfigured()) {
+            return Map.of(
+                    "status", "disconnected",
+                    "configured", false,
+                    "message", "Cloudinary credentials not configured. Using local storage."
+            );
+        }
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> result = (Map<String, Object>) cloudinary.api().ping(ObjectUtils.emptyMap());
+            return Map.of(
+                    "status", "connected",
+                    "configured", true,
+                    "folder", folder,
+                    "ping", result.getOrDefault("status", "ok"),
+                    "message", "Cloudinary connection is active and healthy."
+            );
+        } catch (Exception ex) {
+            log.error("Cloudinary ping failed: {}", ex.getMessage(), ex);
+            return Map.of(
+                    "status", "error",
+                    "configured", true,
+                    "error", ex.getMessage() != null ? ex.getMessage() : "Unknown error",
+                    "message", "Cloudinary connection failed: " + ex.getMessage()
+            );
+        }
+    }
+
     public Map<String, Object> upload(MultipartFile file) throws IOException {
         if (!isConfigured()) {
             throw new IllegalStateException("Cloudinary is not configured.");

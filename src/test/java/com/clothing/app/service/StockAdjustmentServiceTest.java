@@ -68,7 +68,7 @@ class StockAdjustmentServiceTest {
         );
         verify(auditTrailService).record(
                 eq("PRODUCT_VARIANT"),
-                eq("ADJUST_STOCK"),
+                eq("UPDATE"),
                 eq(10L),
                 any(String.class)
         );
@@ -91,9 +91,8 @@ class StockAdjustmentServiceTest {
         ProductVariant result = stockAdjustmentService.adjustStock(request);
 
         assertNotNull(result);
-        verify(oracleProcedureService).executePackageProcedure(
-                eq("PKG_INVENTORY"),
-                eq("ADJUST_STOCK"),
+        verify(oracleProcedureService).executeProcedure(
+                eq("SP_ADJUST_STOCK_DELTA"),
                 any(MapSqlParameterSource.class)
         );
     }
@@ -131,8 +130,8 @@ class StockAdjustmentServiceTest {
         StockAdjustmentRequestDto request = new StockAdjustmentRequestDto(13L, -2, null, "Negative test");
         assertThrows(IllegalArgumentException.class, () -> stockAdjustmentService.adjustStock(request));
 
-        StockAdjustmentRequestDto deltaRequest = new StockAdjustmentRequestDto(13L, null, -10, "Delta test");
-        assertThrows(IllegalArgumentException.class, () -> stockAdjustmentService.adjustStock(deltaRequest));
+        StockAdjustmentRequestDto ambiguous = new StockAdjustmentRequestDto(13L, 10, -1, "Ambiguous test");
+        assertThrows(IllegalArgumentException.class, () -> stockAdjustmentService.adjustStock(ambiguous));
     }
 
     @Test

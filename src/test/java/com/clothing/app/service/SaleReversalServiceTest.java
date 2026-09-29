@@ -24,7 +24,7 @@ import static org.mockito.Mockito.when;
 class SaleReversalServiceTest {
 
     @Test
-    void completedSaleCancellationReturnsStockAndRefundsPaidPayments() {
+    void completedSaleCancellationRequiresAdminApprovedRefundRequest() {
         SaleRepository sales = mock(SaleRepository.class);
         SaleDetailRepository details = mock(SaleDetailRepository.class);
         PaymentRepository payments = mock(PaymentRepository.class);
@@ -33,27 +33,11 @@ class SaleReversalServiceTest {
         Sale sale = new Sale();
         sale.setSaleId(9L);
         sale.setStatus("COMPLETED");
-        ProductVariant variant = new ProductVariant();
-        variant.setVariantId(4L);
-        SaleDetail detail = new SaleDetail();
-        detail.setVariant(variant);
-        detail.setQuantity(3);
-        Payment payment = new Payment();
-        payment.setPaymentStatus("PAID");
         when(sales.findByIdForUpdate(9L)).thenReturn(Optional.of(sale));
-        when(details.findBySale_SaleId(9L)).thenReturn(List.of(detail));
-        when(payments.findBySale_SaleId(9L)).thenReturn(List.of(payment));
-        when(sales.save(sale)).thenReturn(sale);
         SaleReversalService service = new SaleReversalService(sales, details, payments, procedures, audit);
 
-        Sale result = service.cancelSale(9L, "Customer return");
-
-        assertEquals("CANCELLED", result.getStatus());
-        assertEquals("REFUNDED", payment.getPaymentStatus());
-        verify(procedures).executePackageProcedure(eq("PKG_INVENTORY"), eq("ADD_STOCK"),
-                any(MapSqlParameterSource.class));
-        verify(payments).saveAll(List.of(payment));
-        verify(audit).record(eq("SALE"), eq("UPDATE"), eq(9L), any(String.class));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> service.cancelSale(9L, "Customer return"));
     }
 
     @Test

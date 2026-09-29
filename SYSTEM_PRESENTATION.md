@@ -143,9 +143,10 @@ CSMS implements a **Clean Layered Architecture** with database-enforced integrit
 ### Module 3: Catalog & Product Configuration
 - **Product & Variant Matrix**: Manage Master Products (brand, category, description, image) and Variant Child Records (size, color, barcode SKU, cost price, sale price).
 - **Apparel Barcode Label Generator**: Built-in modal generator creating printable Code 128 price tags across 3 formats:
-  - **Apparel Hang Tag** (55mm x 85mm portrait): Brand, garment title, size/color, hole-punch marker, vector barcode, and price.
-  - **Adhesive Price Sticker** (50mm x 30mm landscape): Standard adhesive label for polybags and shoe boxes.
+  - **Apparel Hang Tag** (55mm x 85mm portrait): Brand, garment title, size/color, hole-punch marker, vector barcode, stock status badge, and price.
+  - **Adhesive Price Sticker** (50mm x 30mm landscape): Standard adhesive label for polybags and shoe boxes with optional stock status.
   - **Compact Accessory Tag** (40mm x 20mm): Minimalist label for jewelry, accessories, and belts.
+- **Stock & Status Tick Filtering**: Fast checkbox filters for Product Status (Active / Inactive) and Stock Status (In Stock / Out of Stock) to isolate exactly which inventory items require printed labels.
 - **1-Click Match Stock Automation**: Automatically sets barcode label copy quantities to match each variant's current on-hand warehouse inventory.
 - **Dedicated Print Engine**: `@media print` rules for direct thermal label printers (Zebra, TSC, Brother) and standard A4 sticker sheets.
 - **Cloudinary Image Asset Sync**: Single-action or automated upload of product photography to Cloud CDN with local fallback.
@@ -322,7 +323,7 @@ Use this section as your direct script when presenting this project to instructo
 - **Slide Title**: Real-Time Inventory & Barcode Label Generator
 - **Key Talking Points**:
   - "The catalog features a full Apparel Barcode Label Generator supporting Hang Tags (55x85mm), Price Stickers (50x30mm), and Compact Tags (40x20mm)."
-  - "Managers can use our 1-click 'Match Stock' feature to automatically print exact barcode tag counts corresponding to on-hand inventory."
+  - "Staff can filter variants with dual In Stock / Out of Stock tick checkboxes, toggle on-label stock badges, and use our 1-click 'Match Stock' feature to automatically print exact barcode tag counts corresponding to on-hand inventory."
   - "Labels render as vector SVGs using JsBarcode, ensuring crisp 300+ DPI scanning on thermal sticker printers."
   - "Variants with ten or fewer units automatically trigger visual alerts on the Low Stock tab, and Stock Adjustments allow audited physical inventory reconciliations."
 

@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -34,6 +35,18 @@ public class FileUploadController {
                                 com.clothing.app.repository.ProductRepository productRepository) {
         this.cloudinaryService = cloudinaryService;
         this.productRepository = productRepository;
+    }
+
+    @GetMapping("/test-cloudinary")
+    public ResponseEntity<?> testCloudinary() {
+        if (cloudinaryService == null) {
+            return ResponseEntity.ok(Map.of(
+                    "status", "disconnected",
+                    "configured", false,
+                    "message", "Cloudinary service is not available."
+            ));
+        }
+        return ResponseEntity.ok(cloudinaryService.testConnection());
     }
 
     @PostMapping("/sync-images-to-cloudinary")

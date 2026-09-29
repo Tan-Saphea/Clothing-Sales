@@ -36,6 +36,37 @@ class CloudinaryServiceTest {
     }
 
     @Test
+    void whenCredentialsProvided_testConnectionSucceeds() {
+        CloudinaryService service = new CloudinaryService("v2w9olom", "773841939818133", "4tGcttjWgtnbW9jHV2KuZQa3vBM", "Clothing App");
+        Map<String, Object> status = service.testConnection();
+        assertEquals("connected", status.get("status"));
+        assertEquals(true, status.get("configured"));
+        assertEquals("ok", status.get("ping"));
+    }
+
+    @Test
+    void whenNotConfigured_testConnectionReturnsDisconnected() {
+        CloudinaryService service = new CloudinaryService("", "", "", "Clothing App");
+        Map<String, Object> status = service.testConnection();
+        assertEquals("disconnected", status.get("status"));
+        assertEquals(false, status.get("configured"));
+    }
+
+    @Test
+    void fileUploadController_testCloudinaryReturnsStatus() {
+        CloudinaryService mockCloud = mock(CloudinaryService.class);
+        when(mockCloud.testConnection()).thenReturn(Map.of("status", "connected", "configured", true));
+        ProductRepository mockProdRepo = mock(ProductRepository.class);
+        FileUploadController controller = new FileUploadController(mockCloud, mockProdRepo);
+
+        ResponseEntity<?> response = controller.testCloudinary();
+        assertEquals(200, response.getStatusCode().value());
+        @SuppressWarnings("unchecked")
+        Map<String, Object> body = (Map<String, Object>) response.getBody();
+        assertEquals("connected", body.get("status"));
+    }
+
+    @Test
     void fileUploadController_rejectsEmptyFile() {
         CloudinaryService mockCloud = mock(CloudinaryService.class);
         ProductRepository mockProdRepo = mock(ProductRepository.class);

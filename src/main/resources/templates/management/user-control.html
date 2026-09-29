@@ -13,7 +13,10 @@
                     <p class="text-muted mb-0">Create and manage cashier login accounts.</p>
                     <p class="small text-muted mb-0 mt-1">Administrator: access to all modules. Cashier: Sales and Customers only. Cashier accounts are linked to a Staff employee profile.</p>
                 </div>
-                <button class="btn btn-brand-primary" onclick="openCreateCashier()">Create Cashier</button>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-brand-outline" onclick="openOwnPasswordModal()">Change My Password</button>
+                    <button class="btn btn-brand-primary" onclick="openCreateCashier()">Create Cashier</button>
+                </div>
             </div>
             <div id="userMessage" class="alert d-none"></div>
             <div class="card">
@@ -35,6 +38,33 @@
                 </div>
             </div>
         </main>
+    </div>
+</div>
+
+<!-- Current administrator password change -->
+<div class="modal fade" id="ownPasswordModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header-brand">
+                <h5 class="modal-title">Change My Password</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="ownPasswordForm" onsubmit="submitOwnPassword(event)">
+                <div class="modal-body">
+                    <label class="form-label">Current Password</label>
+                    <input id="ownCurrentPassword" type="password" class="form-control mb-3" required autocomplete="current-password">
+                    <label class="form-label">New Password</label>
+                    <input id="ownNewPassword" type="password" class="form-control mb-3" minlength="12" maxlength="72" required autocomplete="new-password">
+                    <label class="form-label">Confirm New Password</label>
+                    <input id="ownConfirmPassword" type="password" class="form-control" minlength="12" maxlength="72" required autocomplete="new-password">
+                    <div class="form-text mt-2">Your current password is verified immediately. All access in this browser ends after the change.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-brand-primary">Change Password</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
@@ -225,6 +255,30 @@ function openCreateCashier() {
     });
     document.querySelectorAll('#cashierForm .btn-outline-secondary').forEach(btn => btn.textContent = 'Show');
     bootstrap.Modal.getOrCreateInstance(document.getElementById('cashierModal')).show();
+}
+
+function openOwnPasswordModal() {
+    document.getElementById('ownPasswordForm').reset();
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('ownPasswordModal')).show();
+}
+
+async function submitOwnPassword(event) {
+    event.preventDefault();
+    const currentPassword = document.getElementById('ownCurrentPassword').value;
+    const newPassword = document.getElementById('ownNewPassword').value;
+    const confirmation = document.getElementById('ownConfirmPassword').value;
+    if (newPassword !== confirmation) {
+        showUserMessage('New passwords do not match.', 'danger');
+        return;
+    }
+    try {
+        const result = await apiRequest('/api/account/password', 'PUT', { currentPassword, newPassword });
+        bootstrap.Modal.getInstance(document.getElementById('ownPasswordModal')).hide();
+        alert(result.message);
+        window.location.assign('/login');
+    } catch (error) {
+        showUserMessage(error.message, 'danger');
+    }
 }
 
 async function loadUsers() {

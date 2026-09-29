@@ -1,0 +1,13 @@
+-- Run as a DBA after creating the application owner schema.
+-- Replace CLOTHING_APP and the tablespace names to match the deployment.
+ALTER USER CLOTHING_APP QUOTA 500M ON USERS;
+GRANT CREATE SESSION TO CLOTHING_APP;
+GRANT CREATE TABLE TO CLOTHING_APP;
+GRANT CREATE VIEW TO CLOTHING_APP;
+GRANT CREATE PROCEDURE TO CLOTHING_APP;
+GRANT CREATE TRIGGER TO CLOTHING_APP;
+GRANT CREATE SEQUENCE TO CLOTHING_APP;
+
+-- Do not grant DBA, ANY privileges, or access to other application schemas.
+-- After startup migrations are disabled, CREATE privileges can be revoked:
+-- REVOKE CREATE TABLE, CREATE VIEW, CREATE PROCEDURE, CREATE TRIGGER, CREATE SEQUENCE FROM CLOTHING_APP;

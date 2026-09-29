@@ -655,7 +655,9 @@
         <td class="text-end fw-bold">$${Number(c.AVG_ORDER_VALUE || 0).toFixed(2)}</td>
         <td class="text-center">
           <button class="btn btn-sm btn-brand-outline py-0 px-2"
-                  onclick="openCashierDrilldown(${c.EMPLOYEE_ID}, '${escapeHtml(c.EMPLOYEE_NAME || 'Cashier')}')">
+                  data-id="${Number(c.EMPLOYEE_ID)}"
+                  data-name="${escapeHtml(c.EMPLOYEE_NAME || 'Cashier')}"
+                  onclick="openCashierDrilldown(this.getAttribute('data-id'), this.getAttribute('data-name'))">
             View Orders
           </button>
         </td>

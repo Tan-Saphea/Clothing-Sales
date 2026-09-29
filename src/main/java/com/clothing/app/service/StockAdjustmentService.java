@@ -43,43 +43,56 @@ public class StockAdjustmentService {
         }
 
         int currentQty = variant.getStockQty() != null ? variant.getStockQty() : 0;
-        int targetQty;
+        if (request.getNewQuantity() != null && request.getQuantityChange() != null) {
+            throw new IllegalArgumentException("Specify either newQuantity or quantityChange, not both");
+        }
 
+        Integer targetQty = null;
         if (request.getNewQuantity() != null) {
             targetQty = request.getNewQuantity();
         } else if (request.getQuantityChange() != null) {
             if (request.getQuantityChange() == 0) {
                 throw new IllegalArgumentException("Quantity change cannot be zero");
             }
-            targetQty = currentQty + request.getQuantityChange();
         } else {
             throw new IllegalArgumentException("Either newQuantity or quantityChange must be specified");
         }
 
-        if (targetQty < 0) {
+        if (targetQty != null && targetQty < 0) {
             throw new IllegalArgumentException("Stock quantity cannot be negative (target: " + targetQty + ")");
         }
 
-        int diff = targetQty - currentQty;
         String reason = (request.getReason() == null || request.getReason().isBlank())
                 ? "Manual stock adjustment"
                 : request.getReason().trim();
 
-        MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("P_VARIANT_ID", variant.getVariantId())
-                .addValue("P_NEW_QUANTITY", targetQty)
-                .addValue("P_NOTE", reason);
-
-        oracleProcedureService.executePackageProcedure("PKG_INVENTORY", "ADJUST_STOCK", params);
+        int requestedDifference;
+        if (request.getQuantityChange() != null) {
+            requestedDifference = request.getQuantityChange();
+            MapSqlParameterSource params = new MapSqlParameterSource()
+                    .addValue("P_VARIANT_ID", variant.getVariantId())
+                    .addValue("P_QUANTITY_CHANGE", requestedDifference)
+                    .addValue("P_NOTE", reason);
+            oracleProcedureService.executeProcedure("SP_ADJUST_STOCK_DELTA", params);
+        } else {
+            requestedDifference = targetQty - currentQty;
+            MapSqlParameterSource params = new MapSqlParameterSource()
+                    .addValue("P_VARIANT_ID", variant.getVariantId())
+                    .addValue("P_NEW_QUANTITY", targetQty)
+                    .addValue("P_NOTE", reason);
+            oracleProcedureService.executePackageProcedure("PKG_INVENTORY", "ADJUST_STOCK", params);
+        }
 
         if (entityManager != null) {
             entityManager.flush();
             entityManager.refresh(variant);
         }
 
-        auditTrailService.record("PRODUCT_VARIANT", "ADJUST_STOCK", variant.getVariantId(),
-                String.format("Adjusted stock from %d to %d (delta: %+d). Reason: %s",
-                        currentQty, targetQty, diff, reason));
+        int finalQty = variant.getStockQty() != null ? variant.getStockQty()
+                : (targetQty != null ? targetQty : currentQty + requestedDifference);
+        auditTrailService.record("PRODUCT_VARIANT", "UPDATE", variant.getVariantId(),
+                String.format("Adjusted stock from %d to %d (requested delta: %+d). Reason: %s",
+                        currentQty, finalQty, requestedDifference, reason));
 
         return variant;
     }

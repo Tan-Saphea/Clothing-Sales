@@ -113,27 +113,15 @@ public class PageController {
         model.addAttribute("purchaseCount", purchaseService.findAll().size());
         model.addAttribute("saleCount", saleService.findAll().size());
 
-        try {
-            model.addAttribute("kpi", reportService.getKpiSummary());
-            model.addAttribute("dashboardMetrics", reportService.getDashboardMetrics("daily"));
-            model.addAttribute("dailySales", reportService.getSalesTrend("daily"));
-            model.addAttribute("categorySales", reportService.getCategorySales("daily"));
-            model.addAttribute("stockHealth", reportService.getStockHealth());
-            model.addAttribute("topSelling", reportService.getTopSellingProducts("daily").stream().limit(6).toList());
-            model.addAttribute("recentDailySales", reportService.getDailySales().stream().limit(6).toList());
-            model.addAttribute("cashierSales", reportService.getCashierSales("daily"));
-            model.addAttribute("lowStockItems", reportService.getLowStock().stream().limit(6).toList());
-        } catch (Exception ex) {
-            model.addAttribute("kpi", Map.of());
-            model.addAttribute("dashboardMetrics", Map.of());
-            model.addAttribute("dailySales", List.of());
-            model.addAttribute("categorySales", List.of());
-            model.addAttribute("stockHealth", Map.of("inStock", 0, "lowStock", 0, "outOfStock", 0));
-            model.addAttribute("topSelling", List.of());
-            model.addAttribute("recentDailySales", List.of());
-            model.addAttribute("cashierSales", List.of());
-            model.addAttribute("lowStockItems", List.of());
-        }
+        model.addAttribute("kpi", reportService.getKpiSummary());
+        model.addAttribute("dashboardMetrics", reportService.getDashboardMetrics("daily"));
+        model.addAttribute("dailySales", reportService.getSalesTrend("daily"));
+        model.addAttribute("categorySales", reportService.getCategorySales("daily"));
+        model.addAttribute("stockHealth", reportService.getStockHealth());
+        model.addAttribute("topSelling", reportService.getTopSellingProducts("daily").stream().limit(6).toList());
+        model.addAttribute("recentDailySales", reportService.getDailySales().stream().limit(6).toList());
+        model.addAttribute("cashierSales", reportService.getCashierSales("daily"));
+        model.addAttribute("lowStockItems", reportService.getLowStock().stream().limit(6).toList());
 
         return "dashboard/index";
     }
@@ -293,15 +281,9 @@ public class PageController {
     @Transactional(readOnly = true)
     @GetMapping("/stock")
     public String stock(Model model, Authentication authentication) {
-        try {
-            model.addAttribute("stockList", reportService.getProductStock());
-            model.addAttribute("lowStockList", reportService.getLowStock());
-            model.addAttribute("movementList", reportService.getStockMovements().stream().limit(50).toList());
-        } catch (Exception ex) {
-            model.addAttribute("stockList", List.of());
-            model.addAttribute("lowStockList", List.of());
-            model.addAttribute("movementList", List.of());
-        }
+        model.addAttribute("stockList", reportService.getProductStock());
+        model.addAttribute("lowStockList", reportService.getLowStock());
+        model.addAttribute("movementList", reportService.getStockMovements().stream().limit(50).toList());
         model.addAttribute("suppliers", supplierService.findAll().stream()
                 .filter(s -> "ACTIVE".equalsIgnoreCase(s.getStatus())).toList());
         List<Employee> activeEmployees = employeeRepository.findAll().stream()
@@ -322,27 +304,15 @@ public class PageController {
     @Transactional(readOnly = true)
     @GetMapping("/reports")
     public String reports(Model model) {
-        try {
-            model.addAttribute("kpi", reportService.getKpiSummary());
-            model.addAttribute("dailySales", reportService.getDailySales());
-            model.addAttribute("weeklySales", reportService.getWeeklySales());
-            model.addAttribute("monthlySales", reportService.getMonthlySales());
-            model.addAttribute("yearlySales", reportService.getYearlySales());
-            model.addAttribute("cashierSales", reportService.getCashierSales("all"));
-            model.addAttribute("productStock", reportService.getProductStock());
-            model.addAttribute("lowStock", reportService.getLowStock());
-            model.addAttribute("stockMovements", reportService.getStockMovements().stream().limit(100).toList());
-        } catch (Exception ex) {
-            model.addAttribute("kpi", Map.of());
-            model.addAttribute("dailySales", List.of());
-            model.addAttribute("weeklySales", List.of());
-            model.addAttribute("monthlySales", List.of());
-            model.addAttribute("yearlySales", List.of());
-            model.addAttribute("cashierSales", List.of());
-            model.addAttribute("productStock", List.of());
-            model.addAttribute("lowStock", List.of());
-            model.addAttribute("stockMovements", List.of());
-        }
+        model.addAttribute("kpi", reportService.getKpiSummary());
+        model.addAttribute("dailySales", reportService.getDailySales());
+        model.addAttribute("weeklySales", reportService.getWeeklySales());
+        model.addAttribute("monthlySales", reportService.getMonthlySales());
+        model.addAttribute("yearlySales", reportService.getYearlySales());
+        model.addAttribute("cashierSales", reportService.getCashierSales("all"));
+        model.addAttribute("productStock", reportService.getProductStock());
+        model.addAttribute("lowStock", reportService.getLowStock());
+        model.addAttribute("stockMovements", reportService.getStockMovements().stream().limit(100).toList());
         return "report/index";
     }
 }

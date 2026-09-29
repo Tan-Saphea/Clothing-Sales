@@ -82,6 +82,7 @@ public class SecurityConfig {
                 .requestMatchers("/", "/login", "/favicon.ico", "/favicon.png", "/error", "/css/**", "/js/**", "/images/**", "/uploads/**", "/webjars/**").permitAll()
                 .requestMatchers("/sales/**", "/customers/**").hasAnyRole("ADMIN", "CASHIER")
                 .requestMatchers(HttpMethod.GET, "/api/sales/**", "/api/customers/**", "/api/variants/**").hasAnyRole("ADMIN", "CASHIER")
+                .requestMatchers(HttpMethod.POST, "/api/refunds/request/**").hasAnyRole("ADMIN", "CASHIER")
                 .requestMatchers(HttpMethod.DELETE, "/api/customers/**").hasRole("ADMIN")
                 .requestMatchers("/api/sales/**", "/api/customers/**").hasAnyRole("ADMIN", "CASHIER")
                 .requestMatchers(
@@ -90,9 +91,11 @@ public class SecurityConfig {
                     "/audit-log/**",
                     "/api/categories/**", "/api/products/**", "/api/variants/**", "/api/stock/**",
                     "/api/suppliers/**", "/api/purchases/**", "/api/reports/**",
-                    "/api/user-control/**", "/api/staff/**", "/api/admin/**",
+                    "/api/user-control/**", "/api/staff/**", "/api/admin/**", "/api/refunds/**",
                     "/api/upload-image", "/api/sync-images-to-cloudinary", "/api/test-db"
                 ).hasRole("ADMIN")
+                .requestMatchers("/api/account/**").hasAnyRole("ADMIN", "CASHIER")
+                .requestMatchers("/api/test-cloudinary", "/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
                 .anyRequest().denyAll()
             )
             .formLogin(form -> form

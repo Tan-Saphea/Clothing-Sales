@@ -7,6 +7,8 @@ The application requires an Oracle schema user and does not create database user
 3. Set `ORACLE_DB_USER` and `ORACLE_DB_PASSWORD` before starting the application.
 4. Override `ORACLE_DB_HOST`, `ORACLE_DB_PORT`, `ORACLE_DB_SERVICE`, or `ORACLE_DB_SCHEMA` when they differ from the defaults. The schema defaults to `ORACLE_DB_USER`.
 
+No database password fallback is provided. Startup intentionally fails when `ORACLE_DB_PASSWORD` is missing.
+
 Example with SQL*Plus:
 
 ```shell
@@ -28,3 +30,5 @@ export BOOTSTRAP_ADMIN_NAME='System Administrator'
 After the account is created, stop the application, unset `BOOTSTRAP_ADMIN_PASSWORD`, and set `BOOTSTRAP_ADMIN_ENABLED=false`. A later bootstrap run never overwrites an existing account password.
 
 Demo data is disabled by default. When it is deliberately enabled, set strong, unique values for `DEMO_ADMIN_PASSWORD` and `DEMO_CASHIER_PASSWORD`; both must contain at least 12 characters with upper-case, lower-case, number, and symbol.
+
+Production permissions, backup/restore drills, TLS, health checks, and deployment verification are documented in `docs/PRODUCTION_RUNBOOK.md`.

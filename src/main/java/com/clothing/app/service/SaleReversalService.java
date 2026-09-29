@@ -50,21 +50,8 @@ public class SaleReversalService {
         }
 
         if ("COMPLETED".equals(sale.getStatus())) {
-            saleDetailRepository.findBySale_SaleId(saleId).forEach(detail -> {
-                MapSqlParameterSource params = new MapSqlParameterSource()
-                        .addValue("P_VARIANT_ID", detail.getVariant().getVariantId())
-                        .addValue("P_QUANTITY", detail.getQuantity())
-                        .addValue("P_REFERENCE_TYPE", "RETURN")
-                        .addValue("P_REFERENCE_ID", saleId)
-                        .addValue("P_NOTE", "Cancelled sale return: " + reason.trim());
-                oracleProcedureService.executePackageProcedure("PKG_INVENTORY", "ADD_STOCK", params);
-            });
-
-            var payments = paymentRepository.findBySale_SaleId(saleId);
-            payments.stream()
-                    .filter(payment -> "PAID".equals(payment.getPaymentStatus()))
-                    .forEach(payment -> payment.setPaymentStatus("REFUNDED"));
-            paymentRepository.saveAll(payments);
+            throw new IllegalArgumentException(
+                    "Completed sales require an administrator-approved refund request; direct cancellation is not allowed");
         }
 
         sale.setStatus("CANCELLED");

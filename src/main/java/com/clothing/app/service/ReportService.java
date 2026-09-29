@@ -3,6 +3,8 @@ package com.clothing.app.service;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -19,6 +21,7 @@ import java.util.Objects;
 @Service
 @Transactional(readOnly = true)
 public class ReportService {
+    private static final Logger log = LoggerFactory.getLogger(ReportService.class);
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -84,6 +87,7 @@ public class ReportService {
             return jdbcTemplate.queryForList(sql);
         } catch (Exception ex) {
             // Fallback for non-Oracle or test environments
+            log.warn("Oracle weekly-sales query was unavailable; using the portable daily grouping fallback", ex);
             return jdbcTemplate.queryForList("""
                 SELECT TO_CHAR(SALE_DATE, 'YYYY-MM-DD') AS WEEK_START,
                        TO_CHAR(SALE_DATE, 'YYYY-MM-DD') AS WEEK_END,
@@ -374,12 +378,8 @@ public class ReportService {
                 WHERE s.STATUS = 'COMPLETED' AND s.SALE_DATE >= ? AND s.SALE_DATE < ?
                 """;
 
-            List<Map<String, Object>> rows;
-            try {
-                rows = jdbcTemplate.queryForList(sql, java.sql.Date.valueOf(range.startDate()), java.sql.Date.valueOf(range.endDate()));
-            } catch (Exception ex) {
-                rows = List.of();
-            }
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                    sql, java.sql.Date.valueOf(range.startDate()), java.sql.Date.valueOf(range.endDate()));
 
             for (Map<String, Object> row : rows) {
                 BigDecimal grandTotal = BigDecimal.ZERO;
@@ -451,12 +451,8 @@ public class ReportService {
                 GROUP BY TO_CHAR(s.SALE_DATE, 'YYYY-MM-DD')
                 """;
 
-            List<Map<String, Object>> rows;
-            try {
-                rows = jdbcTemplate.queryForList(sql, java.sql.Date.valueOf(range.startDate()), java.sql.Date.valueOf(range.endDate()));
-            } catch (Exception ex) {
-                rows = List.of();
-            }
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                    sql, java.sql.Date.valueOf(range.startDate()), java.sql.Date.valueOf(range.endDate()));
 
             for (Map<String, Object> r : rows) {
                 String day = Objects.toString(r.get("SALE_DAY"), "");
@@ -502,12 +498,8 @@ public class ReportService {
                 GROUP BY TO_CHAR(s.SALE_DATE, 'YYYY-MM-DD')
                 """;
 
-            List<Map<String, Object>> rows;
-            try {
-                rows = jdbcTemplate.queryForList(sql, java.sql.Date.valueOf(range.startDate()), java.sql.Date.valueOf(range.endDate()));
-            } catch (Exception ex) {
-                rows = List.of();
-            }
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                    sql, java.sql.Date.valueOf(range.startDate()), java.sql.Date.valueOf(range.endDate()));
 
             for (Map<String, Object> r : rows) {
                 String day = Objects.toString(r.get("SALE_DAY"), "");
@@ -551,12 +543,8 @@ public class ReportService {
                 GROUP BY TO_CHAR(s.SALE_DATE, 'YYYY-MM')
                 """;
 
-            List<Map<String, Object>> rows;
-            try {
-                rows = jdbcTemplate.queryForList(sql, java.sql.Date.valueOf(range.startDate()), java.sql.Date.valueOf(range.endDate()));
-            } catch (Exception ex) {
-                rows = List.of();
-            }
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                    sql, java.sql.Date.valueOf(range.startDate()), java.sql.Date.valueOf(range.endDate()));
 
             for (Map<String, Object> r : rows) {
                 String monthKey = Objects.toString(r.get("LABEL"), "");
@@ -588,12 +576,7 @@ public class ReportService {
                 FROM V_DAILY_SALES
                 ORDER BY SALE_DAY ASC
                 """;
-            List<Map<String, Object>> allList;
-            try {
-                allList = jdbcTemplate.queryForList(sql);
-            } catch (Exception ex) {
-                allList = List.of();
-            }
+            List<Map<String, Object>> allList = jdbcTemplate.queryForList(sql);
 
             if (allList.size() >= 14) {
                 return allList;

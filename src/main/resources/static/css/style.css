@@ -1593,7 +1593,26 @@ i.bi {
   background: #f0f0f0;
   padding: 1px 6px;
   border-radius: 3px;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
+}
+.barcode-label-hangtag .variant-stock-tag {
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 6px;
+  border-radius: 3px;
+  margin-bottom: 4px;
+}
+.barcode-label-hangtag .variant-stock-tag.in-stock {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #c8e6c9;
+}
+.barcode-label-hangtag .variant-stock-tag.out-stock {
+  background: #ffebee;
+  color: #c62828;
+  border: 1px solid #ffcdd2;
 }
 .barcode-label-hangtag svg.barcode-svg {
   width: 100%;
